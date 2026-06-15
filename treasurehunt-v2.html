@@ -1,0 +1,2228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treasure Hunt v2</title>
+<style>
+  :root {
+    --gold: #f5c518;
+    --gold2: #e6a817;
+    --deep: #1a1035;
+    --panel: #0d0d2b;
+    --card: #161640;
+    --accent: #7c3aed;
+    --accent2: #a855f7;
+    --green: #22c55e;
+    --red: #ef4444;
+    --amber: #f59e0b;
+    --text: #e2e8f0;
+    --subtext: #94a3b8;
+    --border: #2d2d5e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0e0b1f;
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    transition: background 1.4s ease;
+  }
+
+  /* ── STARS BACKGROUND ── */
+  #stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .star { position: absolute; border-radius: 50%; background: #fff; animation: twinkle var(--d) ease-in-out infinite; opacity: 0; }
+  @keyframes twinkle { 0%,100%{opacity:0} 50%{opacity:var(--o)} }
+
+  /* ── LAYOUT ── */
+  #app { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  /* ── HEADER ── */
+  .site-header {
+    text-align: center; padding: 32px 0 24px; position: relative;
+  }
+  .site-header h1 {
+    font-size: clamp(1.8rem, 5vw, 3rem);
+    font-weight: 900; letter-spacing: 0.04em;
+    background: linear-gradient(135deg, var(--gold), var(--gold2), #fff8dc, var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 0 18px rgba(245,197,24,0.5));
+  }
+  .site-header .subtitle { color: var(--subtext); margin-top: 6px; font-size: 0.95rem; letter-spacing: 0.08em; }
+
+  /* ── ADMIN TOGGLE BUTTON ── */
+  .admin-toggle-btn {
+    position: absolute; top: 28px; right: 0;
+    padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border);
+    background: transparent; color: var(--subtext); font-size: 0.75rem;
+    font-weight: 600; letter-spacing: 0.06em; cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center; gap: 5px;
+  }
+  .admin-toggle-btn:hover { border-color: var(--subtext); color: var(--text); }
+  .admin-toggle-btn.active {
+    background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.5);
+    color: var(--red); box-shadow: 0 0 12px rgba(239,68,68,0.2);
+  }
+
+  /* ── PASSWORD MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    padding: 32px 28px; width: min(380px, 92vw);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    animation: modalPop 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes modalPop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-title { font-size: 1.1rem; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+  .modal-sub { font-size: 0.82rem; color: var(--subtext); margin-bottom: 20px; }
+  .modal-input {
+    width: 100%; padding: 12px 16px; background: var(--deep); border: 2px solid var(--border);
+    border-radius: 10px; color: var(--text); font-size: 1rem; outline: none;
+    transition: border-color 0.2s; margin-bottom: 14px; letter-spacing: 0.08em;
+  }
+  .modal-input:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(168,85,247,0.15); }
+  .modal-actions { display: flex; gap: 8px; }
+  .modal-err { color: var(--red); font-size: 0.8rem; margin-top: 10px; min-height: 1.2em; }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 4px; background: var(--panel); border-radius: 14px; padding: 5px; margin-bottom: 24px; border: 1px solid var(--border); }
+  .tab-btn {
+    flex: 1; padding: 10px 6px; border: none; border-radius: 10px; cursor: pointer;
+    font-size: 0.82rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    background: transparent; color: var(--subtext); transition: all 0.2s;
+  }
+  .tab-btn.active { background: var(--accent); color: #fff; box-shadow: 0 2px 12px rgba(124,58,237,0.5); }
+  .tab-btn:hover:not(.active) { background: var(--border); color: var(--text); }
+  .tab-content { display: none; }
+  .admin-tab { display: none; }
+  .admin-tab.admin-visible { display: block; }
+  .tab-content.active { display: block; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 24px; margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 1rem; font-weight: 700; color: var(--gold); letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .icon { font-size: 1.2rem; }
+
+  /* ── HELP TOOLTIP ── */
+  .help-tip {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25);
+    color: var(--subtext); font-size: 0.72rem; font-weight: 700;
+    cursor: default; margin-left: 2px; flex-shrink: 0;
+    position: relative; text-transform: none; letter-spacing: 0;
+  }
+  .help-tip::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 8px); left: 50%;
+    transform: translateX(-50%);
+    background: #1e1e2e; border: 1px solid var(--border);
+    color: var(--text); font-size: 0.78rem; font-weight: 400;
+    line-height: 1.5; padding: 10px 14px; border-radius: 8px;
+    width: 280px; white-space: normal; text-align: left;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    opacity: 0; pointer-events: none; transition: opacity 0.15s;
+    z-index: 999;
+  }
+  .help-tip:hover::after { opacity: 1; }
+  /* flip tooltip if near left edge */
+  .card-title .help-tip:first-of-type::after { left: 0; transform: none; }
+
+  /* ── FORMS ── */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--subtext); margin-bottom: 5px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .field input[type="text"], .field input[type="number"], .field textarea, .field select {
+    width: 100%; padding: 10px 14px; background: var(--deep); border: 1px solid var(--border);
+    border-radius: 9px; color: var(--text); font-size: 0.95rem; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(168,85,247,0.15);
+  }
+  .field textarea { resize: vertical; min-height: 70px; font-family: monospace; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row .field { flex: 1; min-width: 100px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; border: none; border-radius: 9px; cursor: pointer;
+    font-size: 0.88rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; box-shadow: 0 4px 14px rgba(124,58,237,0.4); }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,0.6); }
+  .btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: #1a1035; box-shadow: 0 4px 14px rgba(245,197,24,0.3); }
+  .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(245,197,24,0.5); }
+  .btn-ghost { background: transparent; color: var(--subtext); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--border); color: var(--text); }
+  .btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .btn-danger:hover { background: rgba(239,68,68,0.3); }
+  .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+  /* ── MAP BUILDER ── */
+  #mapCanvas { display: block; border-radius: 12px; border: 2px solid var(--border); cursor: crosshair; max-width: 100%; }
+  #mapDropzone {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 40px;
+    text-align: center; color: var(--subtext); cursor: pointer; transition: all 0.2s;
+    background: rgba(255,255,255,0.02);
+  }
+  #mapDropzone:hover, #mapDropzone.dragover { border-color: var(--accent2); background: rgba(124,58,237,0.07); color: var(--text); }
+  #mapDropzone .dz-icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .grid-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .grid-controls label { font-size: 0.8rem; color: var(--subtext); font-weight: 600; }
+  .grid-controls input[type="number"] { width: 65px; padding: 7px 10px; background: var(--deep); border: 1px solid var(--border); border-radius: 7px; color: var(--text); outline: none; }
+  .grid-controls input:focus { border-color: var(--accent2); }
+  #mapWrapper { position: relative; }
+
+  /* ── WORD BUILDER ── */
+  .words-list { display: flex; flex-direction: column; gap: 10px; }
+  .word-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--deep); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px;
+  }
+  .word-item input { flex: 1; background: transparent; border: none; color: var(--text); font-size: 1rem; font-weight: 700; outline: none; letter-spacing: 0.1em; }
+  .word-item .word-badge {
+    background: var(--accent); color: #fff; border-radius: 6px;
+    padding: 2px 8px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; white-space: nowrap;
+  }
+  .coord-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .coord-chip {
+    background: var(--deep); border: 1px solid var(--border); border-radius: 20px;
+    padding: 3px 10px; font-size: 0.78rem; color: var(--subtext); font-family: monospace;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .coord-chip .letter { color: var(--gold); font-weight: 700; }
+  .coord-chip .editable { cursor: pointer; border-bottom: 1px dashed var(--subtext); }
+  .coord-chip .editable:hover { color: var(--text); border-color: var(--text); }
+
+  /* ── MAPPING TABLE ── */
+  .mapping-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .mapping-table th { background: rgba(124,58,237,0.2); color: var(--gold); padding: 8px 10px; text-align: left; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+  .mapping-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  .mapping-table tr:hover td { background: rgba(255,255,255,0.03); }
+  .mapping-table input { background: transparent; border: 1px solid transparent; border-radius: 5px; color: var(--text); padding: 3px 6px; width: 100%; outline: none; }
+  .mapping-table input:focus { border-color: var(--accent2); background: var(--deep); }
+  .letter-cell { color: var(--gold); font-weight: 700; font-size: 1rem; text-align: center; }
+
+  /* ── CONFIG SLOTS ── */
+  .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 8px; }
+  .config-slot {
+    background: var(--deep); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px; cursor: pointer; transition: all 0.2s; position: relative;
+  }
+  .config-slot.empty { border-style: dashed; opacity: 0.5; text-align: center; color: var(--subtext); font-size: 0.85rem; }
+  .config-slot.empty:hover { opacity: 0.8; border-color: var(--accent2); }
+  .config-slot:not(.empty):hover { border-color: var(--accent2); background: rgba(124,58,237,0.07); }
+  .config-slot .cs-name { font-weight: 700; color: var(--text); font-size: 0.9rem; margin-bottom: 4px; }
+  .config-slot .cs-meta { font-size: 0.75rem; color: var(--subtext); }
+  .config-slot .cs-words { font-size: 0.8rem; color: var(--gold); font-weight: 600; margin-top: 6px; }
+  .config-slot .cs-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--subtext); cursor: pointer; font-size: 1rem; line-height: 1; }
+  .config-slot .cs-del:hover { color: var(--red); }
+
+  /* ── GAME SCREEN ── */
+  .player-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .player-btn {
+    padding: 9px 18px; border-radius: 10px; border: 2px solid var(--border);
+    background: var(--deep); color: var(--text); font-weight: 700; cursor: pointer;
+    transition: all 0.2s; font-size: 0.9rem;
+  }
+  .player-btn.active { border-color: var(--accent2); background: rgba(124,58,237,0.2); color: #fff; box-shadow: 0 0 12px rgba(168,85,247,0.4); }
+  .player-btn:hover:not(.active) { border-color: var(--subtext); }
+  .player-btn.done { border-color: var(--green); color: var(--green); }
+
+  .coord-display {
+    text-align: center; padding: 28px; background: var(--deep); border-radius: 16px;
+    border: 2px solid var(--border); margin: 16px 0;
+    position: relative; overflow: hidden;
+  }
+  .coord-display::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(124,58,237,0.08) 0%, transparent 70%);
+  }
+  .coord-label { font-size: 0.75rem; color: var(--subtext); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .coord-value {
+    font-size: clamp(2.5rem, 8vw, 4rem); font-weight: 900; letter-spacing: 0.1em;
+    background: linear-gradient(135deg, var(--gold), #fff8dc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    filter: drop-shadow(0 0 14px rgba(245,197,24,0.5));
+  }
+
+  .letter-input-row { display: flex; gap: 10px; align-items: stretch; }
+  .letter-input-row input {
+    flex: 1; padding: 14px; font-size: 1.5rem; font-weight: 900; text-align: center;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    background: var(--deep); border: 2px solid var(--border); border-radius: 12px;
+    color: var(--gold); outline: none; transition: border-color 0.2s;
+  }
+  .letter-input-row input:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(168,85,247,0.15); }
+  .letter-input-row .btn { padding: 14px 24px; font-size: 1rem; }
+
+  .feedback-msg { text-align: center; padding: 10px; border-radius: 9px; font-weight: 700; margin-top: 10px; font-size: 0.95rem; transition: all 0.3s; }
+  .feedback-msg.ok { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .feedback-msg.bad { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .feedback-msg.empty { display: none; }
+
+  .progress-bar-wrap { margin-top: 14px; }
+  .progress-bar-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--subtext); margin-bottom: 5px; }
+  .progress-bar { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.6s ease, background 0.8s ease; }
+
+  /* ── LEVEL BADGE ── */
+  .level-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 16px; border-radius: 20px; font-size: 0.72rem;
+    font-weight: 900; letter-spacing: 0.14em; color: #fff;
+    margin-bottom: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    transition: background 0.8s ease, box-shadow 0.8s ease;
+  }
+
+  /* ── LEVEL BACKGROUND ── */
+  #levelBg {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    transition: background 1.4s ease;
+  }
+
+  /* ── LEVEL FLASH ── */
+  #levelFlash {
+    position: fixed; inset: 0; z-index: 150; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0;
+  }
+  #levelFlash.pop {
+    animation: lvlFlash 1.8s cubic-bezier(0.22,1,0.36,1) forwards;
+  }
+  .lf-label {
+    font-size: clamp(3rem, 12vw, 6rem); font-weight: 900;
+    letter-spacing: 0.12em; color: #fff;
+    text-shadow: 0 0 60px currentColor, 0 0 20px currentColor;
+    filter: drop-shadow(0 0 30px rgba(255,255,255,0.6));
+  }
+  .lf-sub {
+    font-size: clamp(1rem, 3vw, 1.6rem); font-weight: 700;
+    letter-spacing: 0.2em; color: rgba(255,255,255,0.7); margin-top: 8px;
+  }
+  @keyframes lvlFlash {
+    0%   { opacity: 0; transform: scale(0.4); }
+    18%  { opacity: 1; transform: scale(1.08); }
+    32%  { opacity: 1; transform: scale(1); }
+    65%  { opacity: 0.85; }
+    100% { opacity: 0; transform: scale(1.4); }
+  }
+
+  .progress-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .prog-chip {
+    padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; font-family: monospace;
+    background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: var(--green);
+  }
+
+  /* ── UNSCRAMBLE ── */
+  .unscramble-section {
+    text-align: center; padding: 28px 20px;
+    background: linear-gradient(135deg, rgba(245,197,24,0.06), rgba(124,58,237,0.06));
+    border: 2px solid rgba(245,197,24,0.2); border-radius: 16px;
+  }
+  .unscramble-title { font-size: 1.2rem; font-weight: 800; color: var(--gold); margin-bottom: 6px; }
+  .unscramble-subtitle { color: var(--subtext); font-size: 0.85rem; margin-bottom: 20px; }
+  .scrambled-display {
+    font-size: clamp(1.8rem, 5vw, 3rem); font-weight: 900; letter-spacing: 0.25em;
+    color: var(--accent2); margin-bottom: 20px; font-family: monospace;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+  .unscramble-input-row { display: flex; gap: 10px; justify-content: center; max-width: 400px; margin: 0 auto; }
+  .unscramble-input-row input {
+    flex: 1; padding: 12px 16px; font-size: 1.3rem; font-weight: 700; text-align: center;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    background: var(--deep); border: 2px solid var(--border); border-radius: 12px;
+    color: var(--text); outline: none;
+  }
+  .unscramble-input-row input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(245,197,24,0.15); }
+
+  /* ── WIN SCREEN ── */
+  #winOverlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: radial-gradient(ellipse at center, rgba(26,16,53,0.97) 60%, rgba(26,16,53,0.99));
+    align-items: center; justify-content: center; text-align: center; padding: 20px;
+  }
+  #winOverlay.show { display: flex; flex-direction: column; }
+  .win-title {
+    font-size: clamp(2rem, 8vw, 4.5rem); font-weight: 900;
+    background: linear-gradient(135deg, var(--gold), #fff, var(--gold2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(245,197,24,0.7));
+    animation: winpop 0.6s cubic-bezier(0.34,1.56,0.64,1);
+    margin-bottom: 12px;
+  }
+  @keyframes winpop { 0%{transform:scale(0.3);opacity:0} 100%{transform:scale(1);opacity:1} }
+  .win-words { font-size: 1.4rem; color: var(--text); margin: 12px 0 28px; letter-spacing: 0.15em; }
+  .confetti-particle {
+    position: fixed; width: 10px; height: 10px; border-radius: 2px;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* ── ADMIN ── */
+  #adminPanel { display: none; }
+  #adminPanel.show { display: block; }
+  .admin-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);
+    color: var(--red); border-radius: 20px; padding: 3px 10px;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; margin-bottom: 14px;
+  }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 10px; }
+  .admin-table th { background: rgba(239,68,68,0.15); color: var(--red); padding: 7px 10px; text-align: left; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+  .admin-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .admin-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .cub-progress-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .cub-prog-chip { font-size: 0.72rem; font-family: monospace; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); color: var(--green); border-radius: 12px; padding: 2px 7px; display: flex; align-items: center; gap: 3px; }
+  .cub-prog-chip button { background: none; border: none; color: rgba(239,68,68,0.5); cursor: pointer; font-size: 0.75rem; line-height: 1; padding: 0; }
+  .cub-prog-chip button:hover { color: var(--red); }
+  .word-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; }
+  .word-tag.achieved { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .word-tag.pending { background: rgba(245,197,24,0.1); color: var(--amber); border: 1px solid rgba(245,197,24,0.25); }
+
+  /* ── MISC ── */
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+  .badge-green { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+  .badge-amber { background: rgba(245,197,24,0.1); color: var(--amber); border: 1px solid rgba(245,197,24,0.25); }
+  .badge-purple { background: rgba(124,58,237,0.15); color: var(--accent2); border: 1px solid rgba(168,85,247,0.3); }
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 22px; font-size: 0.88rem; font-weight: 600;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 300;
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s;
+    opacity: 0; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--subtext); }
+  .empty-state .es-icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty-state p { font-size: 0.9rem; }
+  input[type="file"] { display: none; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .tabs { flex-wrap: wrap; }
+    .tab-btn { min-width: calc(50% - 4px); }
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+<div id="levelBg"></div>
+<div id="levelFlash"><div class="lf-label" id="lfLabel"></div><div class="lf-sub" id="lfSub"></div></div>
+
+<div id="app">
+  <header class="site-header">
+    <h1>⚓ Treasure Hunt</h1>
+    <p class="subtitle">v2 &nbsp;·&nbsp; Coordinate Quest</p>
+    <button class="btn btn-ghost btn-sm" onclick="openHelpModal()" style="margin-right:6px;font-size:0.82rem;padding:6px 12px;">? Help</button>
+    <button class="admin-toggle-btn" id="adminToggleBtn" onclick="handleAdminToggle()">🔒 Admin</button>
+  </header>
+
+  <!-- Password Modal -->
+  <div class="modal-overlay" id="adminLoginModal">
+    <div class="modal-box">
+      <div class="modal-title">🔐 Admin Access</div>
+      <div class="modal-sub">Enter the admin password to unlock builder and config tools.</div>
+      <input class="modal-input" type="password" id="adminPasswordInput" placeholder="Password"
+        onkeydown="if(event.key==='Enter')submitAdminPassword();if(event.key==='Escape')closeAdminModal()">
+      <div class="modal-actions">
+        <button class="btn btn-primary" style="flex:1" onclick="submitAdminPassword()">Unlock</button>
+        <button class="btn btn-ghost" onclick="closeAdminModal()">Cancel</button>
+      </div>
+      <div class="modal-err" id="adminPasswordError"></div>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div class="modal-overlay" id="helpModal" onclick="if(event.target===this)closeHelpModal()">
+    <div class="modal-box" style="max-width:560px;max-height:82vh;overflow-y:auto;">
+      <div class="modal-title">⚓ How It Works</div>
+      <div style="font-size:0.88rem;line-height:1.65;color:var(--text);">
+
+        <p style="color:var(--subtext);margin-bottom:16px;">A physical coordinate treasure hunt — players walk to real-world locations, collect letters, and unscramble a hidden word.</p>
+
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="font-size:1.4rem;line-height:1;flex-shrink:0;">🗺</span>
+            <div><strong style="color:var(--gold);">Upload a map</strong><br>Take a screenshot from Google Maps, Apple Maps, or scan an OS map. Upload it as your hunt area.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="font-size:1.4rem;line-height:1;flex-shrink:0;">📐</span>
+            <div><strong style="color:var(--gold);">Set the grid</strong><br>Drag and resize the yellow grid overlay to align with your map. Set how many columns and rows, and where the coordinates start. Use <em>6-figure mode</em> if you're working from an OS map — players pinpoint a precise spot within each square.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="font-size:1.4rem;line-height:1;flex-shrink:0;">🔤</span>
+            <div><strong style="color:var(--gold);">Add words</strong><br>Each word is a separate level. Players must find every letter for the current word before the next one unlocks. Use short, clear words.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="font-size:1.4rem;line-height:1;flex-shrink:0;">⚙️</span>
+            <div><strong style="color:var(--gold);">Generate coordinates</strong><br>The app assigns a random grid coordinate to each letter. You can edit them manually if needed. Cells marked red (don't use) or orange (prefer not) are skipped.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="font-size:1.4rem;line-height:1;flex-shrink:0;">🖨</span>
+            <div><strong style="color:var(--gold);">Print maps</strong><br>Two pages are generated: an <em>Admin sheet</em> showing letters at their positions (for you to set up the hunt), and a <em>Participant map</em> with just the blank grid for players to navigate with.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="font-size:1.4rem;line-height:1;flex-shrink:0;">🥾</span>
+            <div><strong style="color:var(--gold);">Hide the letters</strong><br>Visit each coordinate and leave a physical letter clue — a card, sticker, chalk mark — at that exact spot.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="font-size:1.4rem;line-height:1;flex-shrink:0;">🚀</span>
+            <div><strong style="color:var(--gold);">Launch &amp; play</strong><br>Add players, hand out participant maps, and let them go. Each player or team tracks their own progress. When all letters for a word are found, they unscramble it to move to the next level.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start;">
+            <span style="font-size:1.4rem;line-height:1;flex-shrink:0;">🔒</span>
+            <div><strong style="color:var(--gold);">Admin mode</strong><br>The Admin button in the top corner locks and unlocks the builder, config, and player management tools. Set a password in Step 4 to protect it. The app always starts in admin mode so you can set up without a password prompt.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top:20px;">
+        <button class="btn btn-primary" style="flex:1" onclick="closeHelpModal()">Got it!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <nav class="tabs" id="mainTabs">
+    <button class="tab-btn active" data-tab="game">🗺 Play</button>
+    <button class="tab-btn admin-tab" data-tab="builder">🔧 Builder</button>
+    <button class="tab-btn admin-tab" data-tab="configs">💾 Configs</button>
+  </nav>
+
+  <!-- ═══════════════════════════════════
+       TAB: PLAY
+  ═══════════════════════════════════ -->
+  <div class="tab-content active" id="tab-game">
+
+    <!-- No config loaded -->
+    <div id="gameNoConfig" class="empty-state">
+      <div class="es-icon">🗺</div>
+      <p style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:8px;">No hunt loaded</p>
+      <p>Head to the <strong>Builder</strong> tab to create one, or load a saved config from <strong>Configs</strong>.</p>
+    </div>
+
+    <!-- Game ready -->
+    <div id="gameReady" class="hidden">
+      <div class="card">
+        <div class="card-title"><span class="icon">👤</span> Players</div>
+        <form id="addPlayerForm" onsubmit="addPlayer(event)" style="display:flex;gap:8px;margin-bottom:14px;">
+          <input type="text" id="playerNameInput" placeholder="Enter player name…" maxlength="30" autocomplete="off"
+            style="flex:1;padding:10px 14px;background:var(--deep);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:0.95rem;outline:none;">
+          <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        </form>
+        <div class="player-grid" id="playerGrid"></div>
+      </div>
+
+      <!-- Active player area -->
+      <div id="playerArea" class="hidden">
+
+        <!-- Main coordinate hunt -->
+        <div id="mainProgress">
+          <div class="card">
+            <div id="levelBadge" class="level-badge">LEVEL 1</div>
+            <div class="card-title"><span class="icon">🧭</span> <span id="activePlayerName">Player</span></div>
+            <div class="coord-display">
+              <div class="coord-label">Your next coordinate</div>
+              <div class="coord-value" id="coordDisplay">—</div>
+            </div>
+            <div class="letter-input-row">
+              <input type="text" id="letterInput" maxlength="1" placeholder="?" autocomplete="off" onkeydown="if(event.key==='Enter')checkLetter()">
+              <button class="btn btn-gold" onclick="checkLetter()">✓ Submit</button>
+            </div>
+            <div id="feedbackMsg" class="feedback-msg empty"></div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-label">
+                <span id="progressLabel">0 / 0</span>
+                <span id="progressPct">0%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+            </div>
+            <details style="margin-top:14px;">
+              <summary style="cursor:pointer;color:var(--subtext);font-size:0.82rem;user-select:none;">Show completed coordinates</summary>
+              <div class="progress-chips" id="progressChips"></div>
+            </details>
+          </div>
+        </div>
+
+        <!-- Unscramble -->
+        <div id="unscrambleSection" class="hidden">
+          <div class="card">
+            <div class="unscramble-section">
+              <div class="unscramble-title">🔤 Unscramble the Word!</div>
+              <div class="unscramble-subtitle">You collected all the letters — now unscramble them and keep it secret!</div>
+              <div class="scrambled-display" id="scrambledDisplay">?</div>
+              <div class="unscramble-input-row">
+                <input type="text" id="unscrambleInput" placeholder="Type here…" autocomplete="off" maxlength="30" onkeydown="if(event.key==='Enter')checkUnscramble()">
+                <button class="btn btn-gold" onclick="checkUnscramble()">✓</button>
+              </div>
+              <div id="unscrambleFeedback" class="feedback-msg empty" style="max-width:400px;margin:12px auto 0;"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       TAB: BUILDER
+  ═══════════════════════════════════ -->
+  <div class="tab-content" id="tab-builder">
+
+    <!-- Step 1: Map -->
+    <div class="card">
+      <div class="card-title"><span class="icon">🗺</span> Step 1 — Upload Map <span class="help-tip" data-tip="Take a screenshot from Google Maps, Apple Maps, or any mapping app and use that as your map image. Drag and resize the yellow grid overlay to align with your hunt area. Click any cell to mark it as 'Don't use' (red) or 'Prefer not' (orange).">i</span></div>
+      <div id="mapDropzone" onclick="document.getElementById('mapFileInput').click()" ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)" ondrop="dzDrop(event)">
+        <div class="dz-icon">📁</div>
+        <div style="font-weight:700;margin-bottom:4px;">Drop map image here</div>
+        <div style="font-size:0.82rem;">or click to browse &nbsp;·&nbsp; PNG, JPG, GIF</div>
+      </div>
+      <input type="file" id="mapFileInput" accept="image/*" onchange="loadMapFile(this)">
+      <div id="mapEditorArea" class="hidden" style="margin-top:14px;">
+        <div id="mapWrapper">
+          <canvas id="mapCanvas"></canvas>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+          <button class="btn btn-ghost btn-sm" id="showLettersBtn" onclick="toggleMapLetters()">👁 Show letters</button>
+        </div>
+        <div class="grid-controls">
+          <label>Cols (X):</label>
+          <input type="number" id="gridCols" min="1" max="50" value="10" oninput="redrawGrid()">
+          <label>Rows (Y):</label>
+          <input type="number" id="gridRows" min="1" max="50" value="8" oninput="redrawGrid()">
+          <label>X start:</label>
+          <input type="number" id="gridXStart" min="0" value="1" oninput="redrawGrid()">
+          <label>Y start:</label>
+          <input type="number" id="gridYStart" min="0" value="1" oninput="redrawGrid()">
+          <button class="btn btn-ghost btn-sm" onclick="resetOverlay()">⊡ Reset overlay</button>
+          <button class="btn btn-ghost btn-sm" id="northArrowBtn" onclick="toggleNorthArrow()">🧭 Add N arrow</button>
+          <label>Arrow size:</label>
+          <input type="number" id="northArrowSize" min="20" max="120" value="40" style="width:55px;padding:7px 8px;background:var(--deep);border:1px solid var(--border);border-radius:7px;color:var(--text);outline:none;" oninput="northArrow.size=Math.max(20,+this.value||40);redrawGrid()" onchange="saveState()">
+          <button class="btn btn-ghost btn-sm" onclick="clearMap()">✕ Remove map</button>
+          <label>Grid ref:</label>
+          <select id="sixFigureToggle" onchange="state.sixFigure=(this.value==='6');saveState()" style="padding:7px 10px;background:var(--deep);border:1px solid var(--border);border-radius:7px;color:var(--text);outline:none;font-size:0.85rem;">
+            <option value="4">4-figure</option>
+            <option value="6">6-figure (OS)</option>
+          </select>
+        </div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <span style="font-size:0.78rem;color:var(--subtext);font-weight:600;">Click cells:</span>
+          <span style="font-size:0.8rem;display:flex;align-items:center;gap:5px;">
+            <span style="display:inline-block;width:16px;height:16px;background:rgba(239,68,68,0.4);border:1px solid rgba(239,68,68,0.8);border-radius:3px;"></span>
+            <span style="color:#ef4444;font-weight:600;">Don't use</span>
+          </span>
+          <span style="font-size:0.8rem;display:flex;align-items:center;gap:5px;">
+            <span style="display:inline-block;width:16px;height:16px;background:rgba(245,158,11,0.28);border:1px solid rgba(245,158,11,0.7);border-radius:3px;"></span>
+            <span style="color:#f59e0b;font-weight:600;">Prefer not</span>
+          </span>
+          <span style="font-size:0.78rem;color:var(--subtext);">Click again to clear. Drag overlay border/handles to reposition &amp; resize.</span>
+          <button class="btn btn-ghost btn-sm" onclick="clearCellStates()">↺ Clear restrictions</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Words -->
+    <div class="card">
+      <div class="card-title"><span class="icon">🔤</span> Step 2 — Words to Find <span class="help-tip" data-tip="Enter the words players will unscramble. Each word is a separate level — players must find every letter coordinate for the current word before the next one unlocks. Use short, clear words for best results.">i</span></div>
+      <div class="words-list" id="wordsList"></div>
+      <div class="btn-group">
+        <button class="btn btn-ghost btn-sm" onclick="addWordSlot()">+ Add Word</button>
+        <button class="btn btn-danger btn-sm" id="removeWordBtn" onclick="removeWordSlot()" style="display:none">− Remove Last</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Generate & Edit -->
+    <div class="card">
+      <div class="card-title"><span class="icon">⚙️</span> Step 3 — Generate Coordinates <span class="help-tip" data-tip="Auto-Generate picks a random grid coordinate for each letter, avoiding excluded cells and spreading letters across the map. You can then edit any coordinate manually in the table. Each cell can only hold one letter.">i</span></div>
+      <p style="font-size:0.85rem;color:var(--subtext);margin-bottom:14px;">Auto-assign random coordinates to each letter, or edit them manually below.</p>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="generateMapping()">🎲 Auto-Generate</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearMapping()">✕ Clear</button>
+      </div>
+      <div id="mappingError" style="color:var(--red);font-size:0.82rem;margin-top:8px;"></div>
+      <div id="mappingTableWrap" class="hidden" style="margin-top:16px;overflow-x:auto;">
+        <table class="mapping-table" id="mappingTable">
+          <thead><tr><th>#</th><th>Word</th><th>Letter</th><th>Coordinate (X,Y)</th></tr></thead>
+          <tbody id="mappingBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Step 4: Save Config -->
+    <div class="card">
+      <div class="card-title"><span class="icon">💾</span> Step 4 — Save Config <span class="help-tip" data-tip="Give your hunt a name and optional admin password. Save to Slots stores it locally for later. Export JSON lets you back it up or share it with another device.">i</span></div>
+      <div class="row">
+        <div class="field"><label>Config Name</label><input type="text" id="configName" placeholder="e.g. Goose Green Hunt" maxlength="40"></div>
+        <div class="field"><label>Admin Password</label><input type="password" id="builderAdminPassword" placeholder="Leave blank = no lock" maxlength="40"></div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-gold" onclick="saveConfig()">💾 Save to Slots</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportConfigJSON()">⬇ Export JSON</button>
+      </div>
+    </div>
+
+    <!-- Step 5: Print Maps -->
+    <div class="card">
+      <div class="card-title"><span class="icon">🖨</span> Step 5 — Print Maps <span class="help-tip" data-tip="Prints two pages: an Admin sheet showing every letter at its coordinate (use this to physically place clues on the day), and a Participant map with just the blank grid to hand to each player. Enable 'Background graphics' in your browser's print settings for best results.">i</span></div>
+      <p style="font-size:0.85rem;color:var(--subtext);margin-bottom:14px;">
+        Generates two printable pages: an <strong style="color:var(--red);">Admin sheet</strong> with letters shown at their coordinates (for setting up the hunt), and a <strong style="color:var(--green);">Participant map</strong> with just the grid (hand one to each player).
+      </p>
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:0.82rem;color:var(--subtext);font-weight:600;">Grid colour</label>
+          <input type="color" id="printGridColor" value="#000000" style="width:36px;height:28px;padding:2px;border:1px solid var(--border);background:var(--deep);border-radius:6px;cursor:pointer;">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:0.82rem;color:var(--subtext);font-weight:600;">Letter colour</label>
+          <input type="color" id="printLetterColor" value="#000000" style="width:36px;height:28px;padding:2px;border:1px solid var(--border);background:var(--deep);border-radius:6px;cursor:pointer;">
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-gold" onclick="printMaps()">🖨 Print Both Maps</button>
+        <button class="btn btn-ghost btn-sm" onclick="printMaps('admin')">Admin only</button>
+        <button class="btn btn-ghost btn-sm" onclick="printMaps('participant')">Participant only</button>
+      </div>
+      <div id="printError" style="color:var(--red);font-size:0.82rem;margin-top:8px;"></div>
+    </div>
+
+    <!-- Step 6: Hide Letters -->
+    <div class="card">
+      <div class="card-title"><span class="icon">🥾</span> Step 6 — Go Hide Your Letters! <span class="help-tip" data-tip="Take your admin map and physically visit each coordinate. Leave a card, sticker, or marker with the correct letter at that exact location. Come back once every letter is placed and hit Launch Game.">i</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+        <div style="display:flex;align-items:flex-start;gap:12px;font-size:0.9rem;">
+          <span style="font-size:1.3rem;line-height:1;">🖨</span>
+          <span>Print your <strong style="color:var(--gold);">Admin map</strong> — it shows each letter at its coordinate. Keep it secret.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;font-size:0.9rem;">
+          <span style="font-size:1.3rem;line-height:1;">🗺</span>
+          <span>Print enough <strong style="color:var(--green);">Participant maps</strong> for every player or team — the blank grid only, no letters shown.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;font-size:0.9rem;">
+          <span style="font-size:1.3rem;line-height:1;">🥾</span>
+          <span>Head out and visit each coordinate. Place a physical letter clue (card, sticker, chalk…) at the exact spot.</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;font-size:0.9rem;">
+          <span style="font-size:1.3rem;line-height:1;">✅</span>
+          <span>Once every letter is hidden, come back here and launch the game. Players can start straight away!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 7: Launch Game -->
+    <div class="card" style="border-color:rgba(99,102,241,0.5);background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(168,85,247,0.06));">
+      <div class="card-title"><span class="icon">🚀</span> Step 7 — Launch Game <span class="help-tip" data-tip="Applies the current config and switches to the Game tab. Players can then add themselves and start entering coordinates. The builder and admin tools stay accessible via the Admin button.">i</span></div>
+      <p style="font-size:0.88rem;color:var(--subtext);margin-bottom:18px;">Letters hidden? Config saved? Hit the button — players can start finding coordinates immediately.</p>
+      <button class="btn btn-primary" onclick="launchGame()" style="font-size:1.05rem;padding:14px 36px;letter-spacing:0.04em;">🚀 Launch Game</button>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════
+       TAB: CONFIGS
+  ═══════════════════════════════════ -->
+  <div class="tab-content" id="tab-configs">
+    <div class="card">
+      <div class="card-title"><span class="icon">💾</span> Saved Configs</div>
+      <div class="config-grid" id="configGrid"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">📂</span> Import / Export</div>
+      <p style="font-size:0.85rem;color:var(--subtext);margin-bottom:14px;">Import a JSON config file (exported from another device) or from the original CSV format.</p>
+      <div class="btn-group">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importJSONInput').click()">📂 Import JSON</button>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importCSVInput').click()">📂 Import Legacy CSV</button>
+      </div>
+      <input type="file" id="importJSONInput" accept=".json,application/json" onchange="importJSON(this)">
+      <input type="file" id="importCSVInput" accept=".csv,text/csv" onchange="importLegacyCSV(this)">
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       ADMIN PANEL (hidden, type admin123)
+  ═══════════════════════════════════ -->
+  <div id="adminPanel">
+    <div class="card" style="border-color:rgba(239,68,68,0.4);">
+      <div class="admin-badge">🔐 Admin Panel — click the Admin button to lock</div>
+      <div class="card-title" style="color:var(--red);">Admin Controls</div>
+      <div class="btn-group" style="margin-bottom:16px;">
+        <button class="btn btn-danger btn-sm" onclick="adminResetAllProgress()">Reset All Progress</button>
+        <button class="btn btn-danger btn-sm" onclick="adminRemoveAllPlayers()">Remove All Players</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportConfigJSON()">Export Active Config</button>
+        <button class="btn btn-primary btn-sm" onclick="switchTab('builder')">Open Builder</button>
+        <button class="btn btn-danger btn-sm" onclick="adminClearAllData()" style="background:rgba(127,29,29,0.7);border-color:rgba(239,68,68,0.6);">🗑 Clear ALL Saved Data</button>
+      </div>
+      <div style="font-size:0.82rem;color:var(--subtext);margin-bottom:10px;">Active config: <span id="adminConfigName" style="color:var(--text);font-weight:700;">none</span></div>
+      <div id="adminProgressTable"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- WIN OVERLAY -->
+<div id="winOverlay">
+  <div class="win-title">🏆 YOU DID IT!</div>
+  <div class="win-words" id="winWords"></div>
+  <p style="color:var(--subtext);margin-bottom:24px;">All coordinates found and all words unscrambled!</p>
+  <button class="btn btn-gold" onclick="closeWin()">🎉 Awesome!</button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let state = {
+  // active game config
+  words: [],        // ["BACKPACK","COMPASS"]
+  mapping: [],      // [{letter,coord,wordIdx}]
+  players: [],      // [{name,progress,order,wordsAchieved}]
+  selectedPlayer: null,
+  configName: '',
+  adminPassword: '',   // set in builder — empty means no lock
+  mapDataURL: null, // base64 image
+  gridCols: 10, gridRows: 8, gridXStart: 1, gridYStart: 1,
+  sixFigure: false,
+  // overlay saved as fractions of canvas size so it survives viewport changes
+  gridOverlayNorm: null,   // {xf,yf,wf,hf}
+  savedCellStates: {},
+  northArrowData: null,    // {xf,yf,rotation,size,visible}
+};
+
+// builder temp state
+let builderWords = [];
+let builderMapping = [];
+let mapImage = null;
+
+// grid overlay state (pixel positions on canvas)
+let gridOverlay = { x: 0, y: 0, w: 0, h: 0 };
+let cellStates = {};   // "col,row" -> 'exclude' | 'soft'
+let _drag = null;      // active drag/resize state
+const HSIZE = 8;       // handle half-size in px
+let northArrow = { x: 60, y: 60, rotation: 0, size: 40, visible: false };
+let showLettersOnMap = false;
+
+function overlayHandles(ov) {
+  return [
+    { id: 'nw', x: ov.x,            y: ov.y            },
+    { id: 'n',  x: ov.x + ov.w / 2, y: ov.y            },
+    { id: 'ne', x: ov.x + ov.w,     y: ov.y            },
+    { id: 'e',  x: ov.x + ov.w,     y: ov.y + ov.h / 2 },
+    { id: 'se', x: ov.x + ov.w,     y: ov.y + ov.h     },
+    { id: 's',  x: ov.x + ov.w / 2, y: ov.y + ov.h     },
+    { id: 'sw', x: ov.x,            y: ov.y + ov.h     },
+    { id: 'w',  x: ov.x,            y: ov.y + ov.h / 2 },
+  ];
+}
+function hitHandle(mx, my) {
+  for (const h of overlayHandles(gridOverlay))
+    if (Math.abs(mx - h.x) <= HSIZE * 1.5 && Math.abs(my - h.y) <= HSIZE * 1.5) return h.id;
+  return null;
+}
+function inGrid(mx, my) {
+  const { x, y, w, h } = gridOverlay;
+  return mx >= x && mx <= x + w && my >= y && my <= y + h;
+}
+function pointToCell(mx, my) {
+  const cols = +document.getElementById('gridCols').value || 10;
+  const rows = +document.getElementById('gridRows').value || 8;
+  const { x, y, w, h } = gridOverlay;
+  return {
+    col: Math.max(0, Math.min(cols - 1, Math.floor((mx - x) / w * cols))),
+    row: Math.max(0, Math.min(rows - 1, Math.floor((my - y) / h * rows))),
+  };
+}
+
+// ── North Arrow helpers ──
+function northArrowRotHandlePos() {
+  const { x, y, size, rotation } = northArrow;
+  const rad = rotation * Math.PI / 180;
+  // handle lives at local (0, size*0.55) — rotate then translate
+  return {
+    x: x - size * 0.55 * Math.sin(rad),
+    y: y + size * 0.55 * Math.cos(rad),
+  };
+}
+function hitNorthArrow(mx, my) {
+  if (!northArrow.visible) return null;
+  const hp = northArrowRotHandlePos();
+  if (Math.hypot(mx - hp.x, my - hp.y) <= 10) return 'rotate';
+  if (Math.hypot(mx - northArrow.x, my - northArrow.y) <= northArrow.size * 0.65) return 'move';
+  return null;
+}
+function drawNorthArrow(ctx, na) {
+  const { x, y, size, rotation } = na;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation * Math.PI / 180);
+
+  // Shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6;
+
+  // Black (east) half of diamond
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(size * 0.28, 0);
+  ctx.lineTo(0, size * 0.42);
+  ctx.closePath();
+  ctx.fillStyle = '#111'; ctx.fill();
+
+  // White (west) half
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(-size * 0.28, 0);
+  ctx.lineTo(0, size * 0.42);
+  ctx.closePath();
+  ctx.fillStyle = '#fff'; ctx.fill();
+
+  // Outline
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(size * 0.28, 0);
+  ctx.lineTo(0, size * 0.42);
+  ctx.lineTo(-size * 0.28, 0);
+  ctx.closePath();
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // "N" label above tip
+  ctx.font = `bold ${Math.round(size * 0.4)}px Arial`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.lineWidth = 3; ctx.strokeStyle = '#fff';
+  ctx.strokeText('N', 0, -size - 3);
+  ctx.fillStyle = '#000'; ctx.fillText('N', 0, -size - 3);
+
+  // Rotation handle (gold dot at south)
+  ctx.fillStyle = '#f5c518';
+  ctx.beginPath(); ctx.arc(0, size * 0.55, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#333';
+  ctx.font = `${Math.round(size * 0.22)}px Arial`;
+  ctx.textBaseline = 'middle'; ctx.fillText('↺', 0, size * 0.55);
+
+  ctx.restore();
+}
+function toggleNorthArrow() {
+  northArrow.visible = !northArrow.visible;
+  const btn = document.getElementById('northArrowBtn');
+  btn.textContent = northArrow.visible ? '🧭 Remove N arrow' : '🧭 Add N arrow';
+  redrawGrid();
+  saveState();
+}
+function toggleMapLetters() {
+  showLettersOnMap = !showLettersOnMap;
+  const btn = document.getElementById('showLettersBtn');
+  btn.textContent = showLettersOnMap ? '👁 Hide letters' : '👁 Show letters';
+  btn.style.borderColor = showLettersOnMap ? 'rgba(168,85,247,0.6)' : '';
+  btn.style.color = showLettersOnMap ? 'var(--accent2)' : '';
+  redrawGrid();
+}
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('th_v2_state');
+    if (s) state = {...state, ...JSON.parse(s)};
+  } catch(e){}
+}
+function saveState() {
+  localStorage.setItem('th_v2_state', JSON.stringify(state));
+}
+function loadConfigs() {
+  try { return JSON.parse(localStorage.getItem('th_v2_configs') || '[]'); } catch(e){ return []; }
+}
+function saveConfigs(configs) {
+  localStorage.setItem('th_v2_configs', JSON.stringify(configs));
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  if (name === 'configs') renderConfigGrid();
+  if (name === 'game') renderGameScreen();
+}
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+// ═══════════════════════════════════════════════════════════
+//  STARS
+// ═══════════════════════════════════════════════════════════
+(function spawnStars() {
+  const el = document.getElementById('stars');
+  for (let i = 0; i < 120; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${2+Math.random()*5}s;--o:${0.3+Math.random()*0.7};animation-delay:${Math.random()*5}s`;
+    el.appendChild(s);
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════
+let toastTimer;
+function toast(msg, dur = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAP / CANVAS
+// ═══════════════════════════════════════════════════════════
+function dzDragOver(e) { e.preventDefault(); document.getElementById('mapDropzone').classList.add('dragover'); }
+function dzDragLeave() { document.getElementById('mapDropzone').classList.remove('dragover'); }
+function dzDrop(e) {
+  e.preventDefault(); dzDragLeave();
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadMapFromFile(f);
+}
+function loadMapFile(input) { if (input.files[0]) loadMapFromFile(input.files[0]); }
+function loadMapFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    mapImage = new Image();
+    mapImage.onload = () => {
+      const canvas = document.getElementById('mapCanvas');
+      const maxW = Math.min(880, canvas.parentElement.offsetWidth || 880);
+      canvas.width = maxW;
+      canvas.height = mapImage.height * (maxW / mapImage.width);
+      // Init overlay to full canvas
+      gridOverlay = { x: 0, y: 0, w: canvas.width, h: canvas.height };
+      cellStates = {};
+      northArrow = { x: canvas.width - 65, y: 65, rotation: 0, size: 40, visible: false };
+      document.getElementById('northArrowBtn').textContent = '🧭 Add N arrow';
+      document.getElementById('mapDropzone').classList.add('hidden');
+      document.getElementById('mapEditorArea').classList.remove('hidden');
+      setupCanvasEvents();
+      redrawGrid();
+    };
+    mapImage.src = e.target.result;
+    state.mapDataURL = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function clearMap() {
+  mapImage = null; state.mapDataURL = null;
+  cellStates = {}; gridOverlay = { x:0, y:0, w:0, h:0 };
+  northArrow.visible = false;
+  showLettersOnMap = false;
+  document.getElementById('northArrowBtn').textContent = '🧭 Add N arrow';
+  document.getElementById('showLettersBtn').textContent = '👁 Show letters';
+  document.getElementById('showLettersBtn').style.borderColor = '';
+  document.getElementById('showLettersBtn').style.color = '';
+  document.getElementById('mapDropzone').classList.remove('hidden');
+  document.getElementById('mapEditorArea').classList.add('hidden');
+  document.getElementById('mapFileInput').value = '';
+}
+function resetOverlay() {
+  const canvas = document.getElementById('mapCanvas');
+  gridOverlay = { x: 0, y: 0, w: canvas.width, h: canvas.height };
+  redrawGrid();
+  saveState();
+}
+function clearCellStates() {
+  cellStates = {};
+  redrawGrid();
+  saveState();
+  toast('Cell restrictions cleared');
+}
+
+function redrawGrid() {
+  if (!mapImage) return;
+  const cols = +document.getElementById('gridCols').value || 10;
+  const rows = +document.getElementById('gridRows').value || 8;
+  const xStart = +document.getElementById('gridXStart').value || 1;
+  const yStart = +document.getElementById('gridYStart').value || 1;
+  const canvas = document.getElementById('mapCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
+
+  const { x: ox, y: oy, w: ow, h: oh } = gridOverlay;
+  const cw = ow / cols, ch = oh / rows;
+
+  // Dim area outside overlay
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, 0, canvas.width, oy);
+  ctx.fillRect(0, oy + oh, canvas.width, canvas.height - oy - oh);
+  ctx.fillRect(0, oy, ox, oh);
+  ctx.fillRect(ox + ow, oy, canvas.width - ox - ow, oh);
+
+  // Cell state fills
+  for (const [key, s] of Object.entries(cellStates)) {
+    const [col, row] = key.split(',').map(Number);
+    const cx = ox + col * cw, cy = oy + row * ch;
+    if (s === 'exclude') {
+      ctx.fillStyle = 'rgba(239,68,68,0.4)';
+      ctx.fillRect(cx + 1, cy + 1, cw - 2, ch - 2);
+      ctx.strokeStyle = 'rgba(239,68,68,0.95)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(cx + 5, cy + 5); ctx.lineTo(cx + cw - 5, cy + ch - 5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + cw - 5, cy + 5); ctx.lineTo(cx + 5, cy + ch - 5); ctx.stroke();
+    } else if (s === 'soft') {
+      ctx.fillStyle = 'rgba(245,158,11,0.28)';
+      ctx.fillRect(cx + 1, cy + 1, cw - 2, ch - 2);
+      ctx.fillStyle = 'rgba(245,158,11,0.95)';
+      ctx.font = `bold ${Math.min(16, Math.max(9, ch * 0.45))}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('~', cx + cw / 2, cy + ch / 2);
+    }
+  }
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(245,197,24,0.6)'; ctx.lineWidth = 1;
+  for (let c = 0; c <= cols; c++) {
+    ctx.beginPath(); ctx.moveTo(ox + c * cw, oy); ctx.lineTo(ox + c * cw, oy + oh); ctx.stroke();
+  }
+  for (let r = 0; r <= rows; r++) {
+    ctx.beginPath(); ctx.moveTo(ox, oy + r * ch); ctx.lineTo(ox + ow, oy + r * ch); ctx.stroke();
+  }
+
+  // Overlay border
+  ctx.strokeStyle = 'rgba(245,197,24,0.95)'; ctx.lineWidth = 2;
+  ctx.strokeRect(ox, oy, ow, oh);
+
+  // Coordinate labels — outside the grid squares
+  const fs = Math.max(9, Math.min(13, Math.min(cw, ch) * 0.42));
+  ctx.font = `bold ${fs}px monospace`;
+  ctx.fillStyle = 'rgba(245,197,24,0.95)';
+  // X labels: below the grid
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let c = 0; c < cols; c++) ctx.fillText(xStart + c, ox + c * cw + cw / 2, oy + oh + 4);
+  // Y labels: left of the grid (Y increases upward, bottom row = yStart)
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let r = 0; r < rows; r++) ctx.fillText(yStart + (rows - 1 - r), ox - 4, oy + r * ch + ch / 2);
+
+  // Letter circles (admin "show letters" toggle)
+  if (showLettersOnMap && builderMapping.length > 0) {
+    const lr = Math.min(cw, ch) * 0.28;
+    const lfs = Math.max(9, Math.min(18, lr * 1.4));
+    ctx.font = `bold ${lfs}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    builderMapping.forEach(m => {
+      const [cx, cy] = m.coord.split(',').map(Number);
+      let px, py;
+      if (state.sixFigure) {
+        const sqX = Math.floor(cx / 10), sqY = Math.floor(cy / 10);
+        const subX = cx % 10, subY = cy % 10;
+        const col = sqX - xStart, row = (rows - 1) - (sqY - yStart);
+        if (col < 0 || col >= cols || row < 0 || row >= rows) return;
+        px = ox + col * cw + (subX + 0.5) * cw / 10;
+        py = oy + row * ch + ch - (subY + 0.5) * ch / 10;
+      } else {
+        const col = cx - xStart, row = (rows - 1) - (cy - yStart);
+        if (col < 0 || col >= cols || row < 0 || row >= rows) return;
+        px = ox + col * cw + cw / 2;
+        py = oy + row * ch + ch / 2;
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath(); ctx.arc(px, py, lr, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(124,58,237,0.7)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(px, py, lr, 0, Math.PI * 2); ctx.stroke();
+      const xs = lr * 0.52;
+      ctx.strokeStyle = '#cc0000'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(px - xs, py - xs); ctx.lineTo(px + xs, py + xs); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px + xs, py - xs); ctx.lineTo(px - xs, py + xs); ctx.stroke();
+      ctx.fillStyle = '#1a1035';
+      ctx.font = `bold ${Math.max(7, lfs * 0.7)}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(m.letter, px, py - lr - 1);
+    });
+  }
+
+  // Resize handles
+  for (const h of overlayHandles(gridOverlay)) {
+    ctx.fillStyle = '#f5c518';
+    ctx.fillRect(h.x - HSIZE, h.y - HSIZE, HSIZE * 2, HSIZE * 2);
+    ctx.strokeStyle = '#1a1035'; ctx.lineWidth = 1;
+    ctx.strokeRect(h.x - HSIZE, h.y - HSIZE, HSIZE * 2, HSIZE * 2);
+  }
+
+  // North arrow (drawn last, on top)
+  if (northArrow.visible) drawNorthArrow(ctx, northArrow);
+
+  // Keep state in sync so saveState() always has current values
+  syncCanvasState(canvas);
+}
+
+function syncCanvasState(canvas) {
+  if (!canvas || !canvas.width || !canvas.height) return;
+  state.gridOverlayNorm = {
+    xf: gridOverlay.x / canvas.width,  yf: gridOverlay.y / canvas.height,
+    wf: gridOverlay.w / canvas.width,  hf: gridOverlay.h / canvas.height,
+  };
+  state.savedCellStates = { ...cellStates };
+  state.northArrowData = {
+    xf: northArrow.x / canvas.width, yf: northArrow.y / canvas.height,
+    rotation: northArrow.rotation, size: northArrow.size, visible: northArrow.visible,
+  };
+}
+
+function restoreCanvasState(canvas) {
+  if (state.gridOverlayNorm) {
+    const n = state.gridOverlayNorm;
+    gridOverlay = { x: n.xf * canvas.width, y: n.yf * canvas.height,
+                    w: n.wf * canvas.width,  h: n.hf * canvas.height };
+  } else {
+    gridOverlay = { x: 0, y: 0, w: canvas.width, h: canvas.height };
+  }
+  cellStates = state.savedCellStates ? { ...state.savedCellStates } : {};
+  if (state.northArrowData) {
+    const n = state.northArrowData;
+    northArrow = { x: n.xf * canvas.width, y: n.yf * canvas.height,
+                   rotation: n.rotation, size: n.size, visible: n.visible };
+    document.getElementById('northArrowBtn').textContent =
+      northArrow.visible ? '🧭 Remove N arrow' : '🧭 Add N arrow';
+    document.getElementById('northArrowSize').value = northArrow.size;
+  }
+}
+
+function setupCanvasEvents() {
+  const canvas = document.getElementById('mapCanvas');
+  const fresh = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(fresh, canvas);
+  const c = document.getElementById('mapCanvas');
+
+  let didDrag = false;
+
+  c.addEventListener('mousedown', e => {
+    const { mx, my } = canvasPt(c, e);
+    didDrag = false;
+
+    // North arrow has highest priority
+    const arrowHit = hitNorthArrow(mx, my);
+    if (arrowHit === 'rotate') {
+      _drag = { type: 'arrow-rotate' };
+      e.preventDefault(); return;
+    }
+    if (arrowHit === 'move') {
+      _drag = { type: 'arrow-move', startX: mx, startY: my, origX: northArrow.x, origY: northArrow.y };
+      e.preventDefault(); return;
+    }
+
+    // Grid overlay
+    const handle = hitHandle(mx, my);
+    if (handle) {
+      _drag = { type: 'resize', handle, startX: mx, startY: my, orig: { ...gridOverlay } };
+    } else if (inGrid(mx, my)) {
+      _drag = { type: 'grid-move', startX: mx, startY: my, orig: { ...gridOverlay } };
+    }
+    e.preventDefault();
+  });
+
+  c.addEventListener('mousemove', e => {
+    const { mx, my } = canvasPt(c, e);
+
+    if (_drag) {
+      didDrag = true;
+      if (_drag.type === 'arrow-move') {
+        northArrow.x = _drag.origX + (mx - _drag.startX);
+        northArrow.y = _drag.origY + (my - _drag.startY);
+        redrawGrid();
+      } else if (_drag.type === 'arrow-rotate') {
+        northArrow.rotation = Math.atan2(mx - northArrow.x, -(my - northArrow.y)) * 180 / Math.PI;
+        redrawGrid();
+      } else if (_drag.type === 'grid-move') {
+        gridOverlay.x = _drag.orig.x + (mx - _drag.startX);
+        gridOverlay.y = _drag.orig.y + (my - _drag.startY);
+        redrawGrid();
+      } else if (_drag.type === 'resize') {
+        const dx = mx - _drag.startX, dy = my - _drag.startY;
+        const o = _drag.orig, hid = _drag.handle;
+        let nx = o.x, ny = o.y, nw = o.w, nh = o.h;
+        if (hid.includes('w')) { nx = o.x + dx; nw = o.w - dx; }
+        if (hid.includes('e')) { nw = o.w + dx; }
+        if (hid.includes('n')) { ny = o.y + dy; nh = o.h - dy; }
+        if (hid.includes('s')) { nh = o.h + dy; }
+        if (nw < 30) { nw = 30; if (hid.includes('w')) nx = o.x + o.w - 30; }
+        if (nh < 30) { nh = 30; if (hid.includes('n')) ny = o.y + o.h - 30; }
+        gridOverlay = { x: nx, y: ny, w: nw, h: nh };
+        redrawGrid();
+      }
+    }
+
+    // Cursor
+    const arrowHit = hitNorthArrow(mx, my);
+    if (arrowHit === 'rotate') { c.style.cursor = 'crosshair'; return; }
+    if (arrowHit === 'move')   { c.style.cursor = _drag ? 'grabbing' : 'grab'; return; }
+    const handle = hitHandle(mx, my);
+    const cursors = { nw:'nw-resize', n:'n-resize', ne:'ne-resize', e:'e-resize', se:'se-resize', s:'s-resize', sw:'sw-resize', w:'w-resize' };
+    if (handle) c.style.cursor = cursors[handle];
+    else if (inGrid(mx, my)) c.style.cursor = _drag ? 'grabbing' : 'grab';
+    else c.style.cursor = 'default';
+  });
+
+  c.addEventListener('mouseup', e => {
+    const { mx, my } = canvasPt(c, e);
+    if (!didDrag && !hitNorthArrow(mx, my) && inGrid(mx, my) && !hitHandle(mx, my)) {
+      const { col, row } = pointToCell(mx, my);
+      const key = `${col},${row}`;
+      const cur = cellStates[key];
+      if (!cur) cellStates[key] = 'exclude';
+      else if (cur === 'exclude') cellStates[key] = 'soft';
+      else delete cellStates[key];
+      redrawGrid();
+    }
+    _drag = null; didDrag = false;
+    saveState();
+  });
+
+  c.addEventListener('mouseleave', () => { _drag = null; c.style.cursor = 'default'; });
+}
+
+function canvasPt(canvas, e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    mx: (e.clientX - r.left) * (canvas.width / r.width),
+    my: (e.clientY - r.top) * (canvas.height / r.height),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WORD SLOTS
+// ═══════════════════════════════════════════════════════════
+function renderWordSlots() {
+  const list = document.getElementById('wordsList');
+  list.innerHTML = '';
+  builderWords.forEach((w, i) => {
+    const d = document.createElement('div');
+    d.className = 'word-item';
+    d.innerHTML = `
+      <span class="word-badge">Word ${i+1}</span>
+      <input type="text" value="${w}" maxlength="20" placeholder="e.g. BACKPACK"
+        oninput="builderWords[${i}]=this.value.toUpperCase().replace(/[^A-Z]/g,'');this.value=builderWords[${i}]"
+        style="letter-spacing:0.12em;text-transform:uppercase;font-size:1rem;">
+      <span style="color:var(--subtext);font-size:0.8rem;">${w.length} letters</span>
+    `;
+    list.appendChild(d);
+  });
+  document.getElementById('removeWordBtn').style.display = builderWords.length > 1 ? '' : 'none';
+}
+function addWordSlot() {
+  builderWords.push('');
+  renderWordSlots();
+}
+function removeWordSlot() {
+  if (builderWords.length > 1) { builderWords.pop(); renderWordSlots(); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAPPING GENERATION
+// ═══════════════════════════════════════════════════════════
+function generateMapping() {
+  const words = builderWords.map(w => w.trim().toUpperCase()).filter(w => w.length > 0);
+  if (words.length === 0) { showMappingError('Add at least one word.'); return; }
+  if (words.some(w => !/^[A-Z]+$/.test(w))) { showMappingError('Words must be letters only.'); return; }
+
+  const cols = +document.getElementById('gridCols').value || 10;
+  const rows = +document.getElementById('gridRows').value || 8;
+  const xStart = +document.getElementById('gridXStart').value || 1;
+  const yStart = +document.getElementById('gridYStart').value || 1;
+
+  // Build excluded/soft sets from cell states
+  // Cell key "col,row" where row=0 is the TOP visual row = highest Y value
+  const excluded = new Set(), softSet = new Set();
+  for (const [key, s] of Object.entries(cellStates)) {
+    const [col, row] = key.split(',').map(Number);
+    const coord = `${xStart + col},${yStart + (rows - 1 - row)}`;
+    if (s === 'exclude') excluded.add(coord);
+    else if (s === 'soft') softSet.add(coord);
+  }
+
+  const preferred = [], fallback = [];
+  for (let rowIdx = 0; rowIdx < rows; rowIdx++)
+    for (let colIdx = 0; colIdx < cols; colIdx++) {
+      const coord = `${xStart + colIdx},${yStart + (rows - 1 - rowIdx)}`;
+      if (excluded.has(coord)) continue;
+      (softSet.has(coord) ? fallback : preferred).push(coord);
+    }
+
+  const totalLetters = words.reduce((s, w) => s + w.length, 0);
+  const available = preferred.length + fallback.length;
+  if (available < totalLetters) {
+    showMappingError(`Only ${available} usable cells (${excluded.size} excluded) but need ${totalLetters}.`);
+    return;
+  }
+
+  // Use preferred first, dip into fallback only if needed
+  const pool = shuffle(preferred);
+  if (pool.length < totalLetters) pool.push(...shuffle(fallback).slice(0, totalLetters - pool.length));
+
+  const sixFigure = state.sixFigure;
+
+  builderMapping = [];
+  let idx = 0;
+  words.forEach((word, wi) => {
+    word.split('').forEach(letter => {
+      let coord = pool[idx++];
+      if (sixFigure) {
+        const [ex, ey] = coord.split(',').map(Number);
+        const subX = Math.floor(Math.random() * 10);
+        const subY = Math.floor(Math.random() * 10);
+        coord = `${ex * 10 + subX},${ey * 10 + subY}`;
+      }
+      builderMapping.push({ letter, coord, wordIdx: wi });
+    });
+  });
+  showMappingError('');
+  renderMappingTable();
+}
+
+function clearMapping() { builderMapping = []; document.getElementById('mappingTableWrap').classList.add('hidden'); }
+
+function showMappingError(msg) { document.getElementById('mappingError').textContent = msg; }
+
+function renderMappingTable() {
+  const tbody = document.getElementById('mappingBody');
+  if (builderMapping.length === 0) { document.getElementById('mappingTableWrap').classList.add('hidden'); return; }
+  document.getElementById('mappingTableWrap').classList.remove('hidden');
+  tbody.innerHTML = builderMapping.map((m, i) => `
+    <tr>
+      <td style="color:var(--subtext);font-size:0.75rem;">${i+1}</td>
+      <td><span class="badge badge-purple">Word ${m.wordIdx+1}</span></td>
+      <td class="letter-cell"><input type="text" maxlength="1" value="${m.letter}" id="ml_${i}"
+        oninput="builderMapping[${i}].letter=this.value.toUpperCase().replace(/[^A-Z]/g,'');this.value=builderMapping[${i}].letter"
+        style="width:36px;text-align:center;font-size:1rem;font-weight:700;color:var(--gold);"></td>
+      <td><input type="text" value="${m.coord}" id="mc_${i}"
+        oninput="builderMapping[${i}].coord=this.value.trim()"
+        style="width:80px;font-family:monospace;"></td>
+    </tr>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SAVE / LOAD CONFIGS
+// ═══════════════════════════════════════════════════════════
+function saveConfig() {
+  const words = builderWords.map(w => w.trim().toUpperCase()).filter(w => w.length > 0);
+  if (words.length === 0 || builderMapping.length === 0) { toast('⚠ Nothing to save — add words and generate mapping first.'); return; }
+  const name = document.getElementById('configName').value.trim() || `Hunt ${new Date().toLocaleDateString()}`;
+  const configs = loadConfigs();
+  const cfg = {
+    id: Date.now(),
+    name,
+    words,
+    mapping: builderMapping.map(m => ({...m})),
+    mapDataURL: state.mapDataURL || null,
+    gridCols: parseInt(document.getElementById('gridCols').value)||10,
+    gridRows: parseInt(document.getElementById('gridRows').value)||8,
+    gridXStart: parseInt(document.getElementById('gridXStart').value)||1,
+    gridYStart: parseInt(document.getElementById('gridYStart').value)||1,
+    adminPassword: document.getElementById('builderAdminPassword').value || '',
+    sixFigure: state.sixFigure || false,
+    gridOverlayNorm: state.gridOverlayNorm || null,
+    savedCellStates: state.savedCellStates || {},
+    northArrowData: state.northArrowData || null,
+    savedAt: new Date().toISOString(),
+  };
+  state.adminPassword = cfg.adminPassword;
+  // replace if same name exists
+  const existing = configs.findIndex(c => c.name === name);
+  if (existing >= 0) configs[existing] = cfg; else configs.push(cfg);
+  saveConfigs(configs);
+  toast(`💾 Config "${name}" saved!`);
+  renderConfigGrid();
+}
+
+function renderConfigGrid() {
+  const configs = loadConfigs();
+  const grid = document.getElementById('configGrid');
+  grid.innerHTML = '';
+  if (configs.length === 0) {
+    grid.innerHTML = '<div class="config-slot empty"><div>No saved configs yet</div><div style="margin-top:6px;">Build one in the Builder tab</div></div>';
+    return;
+  }
+  configs.forEach(cfg => {
+    const d = document.createElement('div');
+    d.className = 'config-slot';
+    d.innerHTML = `
+      <button class="cs-del" onclick="event.stopPropagation();deleteConfig(${cfg.id})" title="Delete">✕</button>
+      <div class="cs-name">${escHtml(cfg.name)}</div>
+      <div class="cs-meta">${cfg.mapping.length} coordinates &nbsp;·&nbsp; ${new Date(cfg.savedAt).toLocaleDateString()}</div>
+      <div class="cs-words">${cfg.words.join(' + ')}</div>
+    `;
+    d.onclick = () => loadConfig(cfg.id);
+    grid.appendChild(d);
+  });
+}
+
+function loadConfig(id) {
+  const cfg = loadConfigs().find(c => c.id === id);
+  if (!cfg) return;
+  state.words = cfg.words;
+  state.mapping = cfg.mapping;
+  state.players = [];
+  state.selectedPlayer = null;
+  state.configName = cfg.name;
+  state.mapDataURL = cfg.mapDataURL || null;
+  state.gridCols = cfg.gridCols || 10;
+  state.gridRows = cfg.gridRows || 8;
+  state.gridXStart = cfg.gridXStart || 1;
+  state.gridYStart = cfg.gridYStart || 1;
+  state.adminPassword = cfg.adminPassword || '';
+  state.sixFigure = cfg.sixFigure || false;
+  document.getElementById('sixFigureToggle').value = state.sixFigure ? '6' : '4';
+  state.gridOverlayNorm = cfg.gridOverlayNorm || null;
+  state.savedCellStates = cfg.savedCellStates || {};
+  state.northArrowData = cfg.northArrowData || null;
+  saveState();
+  toast(`🗺 "${cfg.name}" loaded!`);
+  switchTab('game');
+}
+
+function deleteConfig(id) {
+  if (!confirm('Delete this config?')) return;
+  const configs = loadConfigs().filter(c => c.id !== id);
+  saveConfigs(configs);
+  renderConfigGrid();
+  toast('🗑 Config deleted');
+}
+
+function launchGame() {
+  const words = builderWords.map(w => w.trim().toUpperCase()).filter(w => w.length > 0);
+  if (words.length === 0 || builderMapping.length === 0) { toast('⚠ Generate a mapping first.'); return; }
+  state.words = words;
+  state.mapping = builderMapping.map(m => ({...m}));
+  state.players = [];
+  state.selectedPlayer = null;
+  state.configName = document.getElementById('configName').value.trim() || 'Untitled Hunt';
+  state.adminPassword = document.getElementById('builderAdminPassword').value || '';
+  state.sixFigure = document.getElementById('sixFigureToggle').value === '6';
+  state.mapDataURL = state.mapDataURL || null;
+  saveState();
+  switchTab('game');
+  toast('🚀 Hunt launched!');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  IMPORT / EXPORT
+// ═══════════════════════════════════════════════════════════
+function exportConfigJSON() {
+  if (!state.mapping || state.mapping.length === 0) { toast('⚠ No active config to export.'); return; }
+  const cfg = { name: state.configName, words: state.words, mapping: state.mapping, adminPassword: state.adminPassword || '', savedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(cfg, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${state.configName.replace(/\s+/g,'_') || 'hunt'}-config.json`;
+  a.click();
+}
+
+function importJSON(input) {
+  if (!input.files[0]) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const cfg = JSON.parse(e.target.result);
+      if (!cfg.words || !cfg.mapping) throw new Error('Invalid format');
+      const configs = loadConfigs();
+      cfg.id = Date.now();
+      cfg.savedAt = cfg.savedAt || new Date().toISOString();
+      configs.push(cfg);
+      saveConfigs(configs);
+      renderConfigGrid();
+      toast(`📂 "${cfg.name}" imported!`);
+    } catch(err) { toast('⚠ Failed to import JSON.'); }
+    input.value = '';
+  };
+  r.readAsText(input.files[0]);
+}
+
+function importLegacyCSV(input) {
+  if (!input.files[0]) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const lines = e.target.result.trim().split(/\r?\n/);
+      let w1 = '', w2 = '', map = [];
+      lines.forEach((line, i) => {
+        const parts = line.split(',');
+        if (i === 0 && parts[0].toLowerCase() === 'word1') w1 = parts.slice(1).join(',').trim().toUpperCase();
+        else if (i === 1 && parts[0].toLowerCase() === 'word2') w2 = parts.slice(1).join(',').trim().toUpperCase();
+        else if (i >= 3 && parts.length >= 3) {
+          map.push({ letter: parts[0].trim().toUpperCase(), coord: parts.slice(1).join(',').trim(), wordIdx: map.length < w1.length ? 0 : 1 });
+        }
+      });
+      if (!w1 || !w2 || map.length !== w1.length + w2.length) throw new Error('Bad CSV');
+      const cfg = { id: Date.now(), name: `Imported CSV`, words: [w1, w2], mapping: map, savedAt: new Date().toISOString() };
+      const configs = loadConfigs();
+      configs.push(cfg);
+      saveConfigs(configs);
+      renderConfigGrid();
+      toast('📂 Legacy CSV imported!');
+    } catch(err) { toast('⚠ Failed to import CSV.'); }
+    input.value = '';
+  };
+  r.readAsText(input.files[0]);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GAME SCREEN
+// ═══════════════════════════════════════════════════════════
+//  LEVEL THEMES
+// ═══════════════════════════════════════════════════════════
+const LEVEL_THEMES = [
+  { a: '#7c3aed', b: '#a855f7', bg: 'rgba(124,58,237,0.45)',  body: '#0e0b1f', label: 'LEVEL 1', sub: 'Find the coordinates!' },
+  { a: '#16a34a', b: '#22c55e', bg: 'rgba(34,197,94,0.40)',   body: '#051208', label: 'LEVEL 2', sub: 'Next word unlocked!' },
+  { a: '#d97706', b: '#f59e0b', bg: 'rgba(245,158,11,0.40)',  body: '#130d02', label: 'LEVEL 3', sub: 'Keep going!' },
+  { a: '#dc2626', b: '#ef4444', bg: 'rgba(239,68,68,0.40)',   body: '#130404', label: 'LEVEL 4', sub: "You're on fire!" },
+  { a: '#0284c7', b: '#38bdf8', bg: 'rgba(56,189,248,0.40)',  body: '#020d17', label: 'LEVEL 5', sub: 'Almost there!' },
+  { a: '#db2777', b: '#ec4899', bg: 'rgba(236,72,153,0.40)',  body: '#130208', label: 'LEVEL 6', sub: 'Final stretch!' },
+];
+
+function getLevelInfo(player) {
+  let lettersSoFar = 0;
+  for (let wi = 0; wi < state.words.length; wi++) {
+    const wordLen = state.words[wi].length;
+    if (!player.wordsAchieved[wi]) {
+      const progressInWord = Math.min(Math.max(player.progress - lettersSoFar, 0), wordLen);
+      return { levelIdx: wi, progressInWord, wordLen };
+    }
+    lettersSoFar += wordLen;
+  }
+  const last = state.words.length - 1;
+  return { levelIdx: last, progressInWord: state.words[last].length, wordLen: state.words[last].length };
+}
+
+let _currentLevelIdx = -1;
+
+function applyLevelTheme(levelIdx) {
+  const t = LEVEL_THEMES[levelIdx % LEVEL_THEMES.length];
+  const isNewLevel = levelIdx !== _currentLevelIdx;
+  _currentLevelIdx = levelIdx;
+
+  // Body background colour — the most obvious change
+  document.body.style.background = t.body;
+
+  // Strong radial highlight on top
+  document.getElementById('levelBg').style.background =
+    `radial-gradient(ellipse at 50% 30%, ${t.bg} 0%, transparent 60%)`;
+
+  // Progress bar
+  document.getElementById('progressFill').style.background =
+    `linear-gradient(90deg, ${t.a}, ${t.b})`;
+
+  // Level badge
+  const badge = document.getElementById('levelBadge');
+  badge.textContent = t.label;
+  badge.style.background = `linear-gradient(135deg, ${t.a}, ${t.b})`;
+  badge.style.boxShadow = `0 0 24px ${t.bg}, 0 2px 8px rgba(0,0,0,0.4)`;
+
+  // Level-up flash — only on genuine level transitions
+  if (isNewLevel && _currentLevelIdx !== 0) {
+    const flash = document.getElementById('levelFlash');
+    document.getElementById('lfLabel').textContent = t.label;
+    document.getElementById('lfLabel').style.color = t.b;
+    document.getElementById('lfSub').textContent = t.sub;
+    flash.classList.remove('pop');
+    void flash.offsetWidth; // force reflow so animation restarts
+    flash.classList.add('pop');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+function renderGameScreen() {
+  const hasConfig = state.words && state.words.length > 0 && state.mapping && state.mapping.length > 0;
+  document.getElementById('gameNoConfig').classList.toggle('hidden', hasConfig);
+  document.getElementById('gameReady').classList.toggle('hidden', !hasConfig);
+  if (!hasConfig) return;
+  renderPlayerGrid();
+  if (state.selectedPlayer !== null) showPlayerArea();
+}
+
+function addPlayer(event) {
+  event.preventDefault();
+  const name = document.getElementById('playerNameInput').value.trim();
+  if (!name) return;
+  if (state.players.some(p => p.name.toLowerCase() === name.toLowerCase())) { toast('⚠ Player already exists'); return; }
+  const player = { name, progress: 0, order: generatePlayerOrder(), wordsAchieved: new Array(state.words.length).fill(false) };
+  state.players.push(player);
+  saveState();
+  renderPlayerGrid();
+  document.getElementById('playerNameInput').value = '';
+  toast(`👤 ${name} added!`);
+}
+
+function generatePlayerOrder() {
+  let idx = 0;
+  const segments = state.words.map(w => {
+    const seg = [];
+    for (let i = 0; i < w.length; i++) seg.push(idx++);
+    return seg;
+  });
+  return segments.reduce((all, seg) => all.concat(shuffle(seg)), []);
+}
+
+function renderPlayerGrid() {
+  const grid = document.getElementById('playerGrid');
+  grid.innerHTML = '';
+  state.players.forEach((p, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'player-btn' + (i === state.selectedPlayer ? ' active' : '') + (isPlayerDone(p) ? ' done' : '');
+    btn.textContent = p.name + (isPlayerDone(p) ? ' ✓' : '');
+    btn.onclick = () => selectPlayer(i);
+    grid.appendChild(btn);
+  });
+}
+
+function isPlayerDone(p) {
+  return p.wordsAchieved && p.wordsAchieved.every(Boolean);
+}
+
+function selectPlayer(idx) {
+  state.selectedPlayer = idx;
+  saveState();
+  renderPlayerGrid();
+  showPlayerArea();
+}
+
+function showPlayerArea() {
+  const area = document.getElementById('playerArea');
+  if (state.selectedPlayer === null || !state.players[state.selectedPlayer]) { area.classList.add('hidden'); return; }
+  area.classList.remove('hidden');
+  const p = state.players[state.selectedPlayer];
+  document.getElementById('activePlayerName').textContent = p.name;
+  document.getElementById('unscrambleSection').classList.add('hidden');
+  document.getElementById('mainProgress').classList.remove('hidden');
+  showNextCoord();
+}
+
+function showNextCoord() {
+  if (state.selectedPlayer === null) return;
+  const p = state.players[state.selectedPlayer];
+  const progress = p.progress;
+  const totalLetters = state.mapping.length;
+
+  document.getElementById('unscrambleSection').classList.add('hidden');
+  document.getElementById('mainProgress').classList.remove('hidden');
+  document.getElementById('feedbackMsg').className = 'feedback-msg empty';
+
+  // Check if we're at a word boundary needing unscramble
+  let lettersSoFar = 0;
+  for (let wi = 0; wi < state.words.length; wi++) {
+    lettersSoFar += state.words[wi].length;
+    if (progress === lettersSoFar && !p.wordsAchieved[wi]) {
+      showUnscramble(wi);
+      return;
+    }
+  }
+
+  // All done
+  if (progress >= totalLetters && p.wordsAchieved.every(Boolean)) {
+    applyLevelTheme(state.words.length - 1);
+    document.getElementById('coordDisplay').textContent = '🏆 All done!';
+    document.getElementById('letterInput').disabled = true;
+    document.getElementById('progressLabel').textContent = `Complete!`;
+    document.getElementById('progressPct').textContent = '100%';
+    document.getElementById('progressFill').style.width = '100%';
+    renderProgressChips();
+    return;
+  }
+
+  if (progress >= p.order.length) { showUnscramble(state.words.length - 1); return; }
+
+  const { levelIdx, progressInWord, wordLen } = getLevelInfo(p);
+  applyLevelTheme(levelIdx);
+
+  const mapIdx = p.order[progress];
+  document.getElementById('coordDisplay').textContent = state.mapping[mapIdx].coord;
+  document.getElementById('letterInput').value = '';
+  document.getElementById('letterInput').disabled = false;
+  document.getElementById('letterInput').focus();
+  document.getElementById('progressLabel').textContent = `${progressInWord} / ${wordLen} coordinates`;
+  const pct = Math.round(progressInWord / wordLen * 100);
+  document.getElementById('progressPct').textContent = `${pct}%`;
+  document.getElementById('progressFill').style.width = `${pct}%`;
+  renderProgressChips();
+}
+
+function checkLetter() {
+  if (state.selectedPlayer === null) return;
+  const p = state.players[state.selectedPlayer];
+  const idx = p.progress;
+  if (idx >= p.order.length) return;
+  const mapIdx = p.order[idx];
+  const entered = document.getElementById('letterInput').value.trim().toUpperCase();
+  const target = state.mapping[mapIdx].letter.toUpperCase();
+  const fb = document.getElementById('feedbackMsg');
+  if (entered === target) {
+    p.progress++;
+    saveState();
+    fb.textContent = '✓ Correct! Next coordinate unlocked.';
+    fb.className = 'feedback-msg ok';
+    setTimeout(() => { showNextCoord(); renderProgressChips(); renderAdminTable(); renderPlayerGrid(); }, 500);
+  } else {
+    fb.textContent = '✗ Incorrect — try again!';
+    fb.className = 'feedback-msg bad';
+    document.getElementById('letterInput').select();
+  }
+}
+
+function renderProgressChips() {
+  if (state.selectedPlayer === null) return;
+  const p = state.players[state.selectedPlayer];
+  const chips = document.getElementById('progressChips');
+  chips.innerHTML = '';
+  for (let i = 0; i < p.progress; i++) {
+    const mapIdx = p.order[i];
+    const m = state.mapping[mapIdx];
+    const chip = document.createElement('div');
+    chip.className = 'prog-chip';
+    chip.textContent = `${m.coord} → ${m.letter}`;
+    chips.appendChild(chip);
+  }
+  if (p.progress === 0) chips.innerHTML = '<span style="color:var(--subtext);font-size:0.8rem;">No coordinates found yet</span>';
+}
+
+function showUnscramble(wordIdx) {
+  applyLevelTheme(wordIdx);
+  document.getElementById('mainProgress').classList.add('hidden');
+  document.getElementById('unscrambleSection').classList.remove('hidden');
+  document.getElementById('unscrambleFeedback').className = 'feedback-msg empty';
+  document.getElementById('unscrambleInput').value = '';
+  document.getElementById('scrambledDisplay').textContent = scramble(state.words[wordIdx]);
+  document.getElementById('unscrambleSection').dataset.wordIdx = wordIdx;
+  setTimeout(() => document.getElementById('unscrambleInput').focus(), 100);
+}
+
+function checkUnscramble() {
+  if (state.selectedPlayer === null) return;
+  const p = state.players[state.selectedPlayer];
+  const wordIdx = parseInt(document.getElementById('unscrambleSection').dataset.wordIdx);
+  const target = state.words[wordIdx].toUpperCase();
+  const entered = document.getElementById('unscrambleInput').value.trim().toUpperCase();
+  const fb = document.getElementById('unscrambleFeedback');
+  if (entered === target) {
+    p.wordsAchieved[wordIdx] = true;
+    saveState();
+    fb.textContent = '🎉 Yes! Word unscrambled!';
+    fb.className = 'feedback-msg ok';
+    setTimeout(() => {
+      if (p.wordsAchieved.every(Boolean)) {
+        showWin(p);
+      } else {
+        document.getElementById('unscrambleSection').classList.add('hidden');
+        document.getElementById('mainProgress').classList.remove('hidden');
+        showNextCoord();
+      }
+      renderAdminTable(); renderPlayerGrid();
+    }, 800);
+  } else {
+    fb.textContent = '✗ Not quite — keep trying!';
+    fb.className = 'feedback-msg bad';
+    document.getElementById('unscrambleInput').select();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WIN
+// ═══════════════════════════════════════════════════════════
+function showWin(player) {
+  document.getElementById('winWords').textContent = state.words.join(' + ');
+  document.getElementById('winOverlay').classList.add('show');
+  spawnConfetti();
+}
+function closeWin() {
+  document.getElementById('winOverlay').classList.remove('show');
+  document.querySelectorAll('.confetti-particle').forEach(e => e.remove());
+}
+function spawnConfetti() {
+  const colors = ['#f5c518','#a855f7','#22c55e','#ef4444','#3b82f6','#ffffff'];
+  for (let i = 0; i < 120; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-particle';
+    c.style.cssText = `left:${Math.random()*100}%;top:0;background:${colors[Math.floor(Math.random()*colors.length)]};
+      width:${4+Math.random()*8}px;height:${4+Math.random()*8}px;border-radius:${Math.random()>0.5?'50%':'2px'};
+      animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*2}s;`;
+    document.body.appendChild(c);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ADMIN PANEL
+// ═══════════════════════════════════════════════════════════
+let adminMode = false;
+
+function handleAdminToggle() {
+  if (adminMode) {
+    adminMode = false;
+    applyAdminUI();
+  } else if (!state.adminPassword) {
+    // No password configured — unlock straight away
+    adminMode = true;
+    applyAdminUI();
+  } else {
+    openAdminModal();
+  }
+}
+
+function openHelpModal() {
+  document.getElementById('helpModal').classList.add('show');
+}
+function closeHelpModal() {
+  document.getElementById('helpModal').classList.remove('show');
+}
+
+function openAdminModal() {
+  document.getElementById('adminPasswordInput').value = '';
+  document.getElementById('adminPasswordError').textContent = '';
+  document.getElementById('adminLoginModal').classList.add('show');
+  setTimeout(() => document.getElementById('adminPasswordInput').focus(), 50);
+}
+
+function closeAdminModal() {
+  document.getElementById('adminLoginModal').classList.remove('show');
+}
+
+function submitAdminPassword() {
+  const val = document.getElementById('adminPasswordInput').value;
+  if (val === state.adminPassword) {
+    adminMode = true;
+    closeAdminModal();
+    applyAdminUI();
+  } else {
+    const err = document.getElementById('adminPasswordError');
+    err.textContent = 'Incorrect password.';
+    document.getElementById('adminPasswordInput').select();
+    setTimeout(() => { err.textContent = ''; }, 2000);
+  }
+}
+
+function applyAdminUI() {
+  const btn = document.getElementById('adminToggleBtn');
+  btn.textContent = adminMode ? '🔓 Admin' : '🔒 Admin';
+  btn.classList.toggle('active', adminMode);
+
+  document.getElementById('adminPanel').classList.toggle('show', adminMode);
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('admin-visible', adminMode));
+
+  if (!adminMode) {
+    const activeTab = document.querySelector('.tab-btn.active');
+    if (activeTab && (activeTab.dataset.tab === 'builder' || activeTab.dataset.tab === 'configs')) {
+      switchTab('game');
+    }
+  } else {
+    renderAdminTable();
+    document.getElementById('adminConfigName').textContent = state.configName || 'none';
+  }
+  toast(adminMode ? '🔓 Admin mode unlocked' : '🔒 Admin mode locked');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PRINT MAPS
+// ═══════════════════════════════════════════════════════════
+function printMaps(which = 'both') {
+  const errEl = document.getElementById('printError');
+  if (!mapImage) { errEl.textContent = '⚠ Upload a map image first (Step 1).'; return; }
+  if (builderMapping.length === 0) { errEl.textContent = '⚠ Generate a coordinate mapping first (Step 3).'; return; }
+  errEl.textContent = '';
+
+  const cols = +document.getElementById('gridCols').value || 10;
+  const rows = +document.getElementById('gridRows').value || 8;
+  const xStart = +document.getElementById('gridXStart').value || 1;
+  const yStart = +document.getElementById('gridYStart').value || 1;
+  const { x: ox, y: oy, w: ow, h: oh } = gridOverlay;
+  const cw = ow / cols, ch = oh / rows;
+
+  const gridHex   = document.getElementById('printGridColor').value;
+  const letterHex = document.getElementById('printLetterColor').value;
+  function hexRgba(hex, a) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  function drawMap(withLetters) {
+    const src = document.getElementById('mapCanvas');
+    const c = document.createElement('canvas');
+    c.width = src.width; c.height = src.height;
+    const ctx = c.getContext('2d');
+
+    // Map image
+    ctx.drawImage(mapImage, 0, 0, c.width, c.height);
+
+    // Dim outside overlay (light, for print readability)
+    ctx.fillStyle = 'rgba(220,220,220,0.55)';
+    ctx.fillRect(0, 0, c.width, oy);
+    ctx.fillRect(0, oy + oh, c.width, c.height - oy - oh);
+    ctx.fillRect(0, oy, ox, oh);
+    ctx.fillRect(ox + ow, oy, c.width - ox - ow, oh);
+
+    // Grid lines
+    ctx.strokeStyle = hexRgba(gridHex, 0.55); ctx.lineWidth = 1;
+    for (let col = 0; col <= cols; col++) {
+      ctx.beginPath(); ctx.moveTo(ox + col * cw, oy); ctx.lineTo(ox + col * cw, oy + oh); ctx.stroke();
+    }
+    for (let row = 0; row <= rows; row++) {
+      ctx.beginPath(); ctx.moveTo(ox, oy + row * ch); ctx.lineTo(ox + ow, oy + row * ch); ctx.stroke();
+    }
+
+    // Overlay border
+    ctx.strokeStyle = hexRgba(gridHex, 0.9); ctx.lineWidth = 2;
+    ctx.strokeRect(ox, oy, ow, oh);
+
+    // Coordinate labels — outside the grid squares
+    const fs = Math.max(8, Math.min(13, Math.min(cw, ch) * 0.38));
+    ctx.font = `bold ${fs}px Arial`;
+    ctx.fillStyle = hexRgba(gridHex, 0.9);
+    // X labels: below the grid
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let col = 0; col < cols; col++) ctx.fillText(xStart + col, ox + col * cw + cw / 2, oy + oh + 4);
+    // Y labels: left of the grid (Y increases upward)
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let r = 0; r < rows; r++) ctx.fillText(yStart + (rows - 1 - r), ox - 4, oy + r * ch + ch / 2);
+
+    if (withLetters) {
+      const r = Math.min(cw, ch) * 0.28;
+      const lfs = Math.max(9, Math.min(18, r * 1.4));
+      ctx.font = `bold ${lfs}px Arial`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+      builderMapping.forEach(m => {
+        const [coordX, coordY] = m.coord.split(',').map(Number);
+        let px, py;
+        if (state.sixFigure) {
+          const sqX = Math.floor(coordX / 10), sqY = Math.floor(coordY / 10);
+          const subX = coordX % 10, subY = coordY % 10;
+          const col = sqX - xStart, row = (rows - 1) - (sqY - yStart);
+          if (col < 0 || col >= cols || row < 0 || row >= rows) return;
+          px = ox + col * cw + (subX + 0.5) * cw / 10;
+          py = oy + row * ch + ch - (subY + 0.5) * ch / 10;
+        } else {
+          const col = coordX - xStart, row = (rows - 1) - (coordY - yStart);
+          if (col < 0 || col >= cols || row < 0 || row >= rows) return;
+          px = ox + col * cw + cw / 2;
+          py = oy + row * ch + ch / 2;
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = hexRgba(letterHex, 0.3); ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.stroke();
+        const xs = r * 0.52;
+        ctx.strokeStyle = '#cc0000'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px - xs, py - xs); ctx.lineTo(px + xs, py + xs); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px + xs, py - xs); ctx.lineTo(px - xs, py + xs); ctx.stroke();
+        ctx.fillStyle = hexRgba(letterHex, 1);
+        ctx.font = `bold ${Math.max(7, lfs * 0.7)}px Arial`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.fillText(m.letter, px, py - r - 2);
+      });
+    }
+
+    // North arrow
+    if (northArrow.visible) drawNorthArrow(ctx, northArrow);
+
+    return c.toDataURL('image/png');
+  }
+
+  const cfgName = document.getElementById('configName').value.trim() || state.configName || 'Treasure Hunt';
+  const pages = [];
+  if (which === 'both' || which === 'admin') pages.push({ img: drawMap(true), title: 'ADMIN MAP', sub: 'Keep this secret — shows letters at their coordinate positions.', colour: '#c00' });
+  if (which === 'both' || which === 'participant') pages.push({ img: drawMap(false), title: 'PARTICIPANT MAP', sub: 'Hand one copy to each player.', colour: '#1a6' });
+
+  const win = window.open('', '_blank');
+  if (!win) { errEl.textContent = '⚠ Pop-up blocked — allow pop-ups for this page then try again.'; return; }
+
+  const html = pages.map((p, i) => `
+    <div class="page">
+      <h1 style="color:${p.colour}">${p.title}</h1>
+      <p class="hunt-name">${escHtml(cfgName)}</p>
+      <p class="sub">${p.sub}</p>
+      <img src="${p.img}">
+    </div>`).join('');
+
+  win.document.write(`<!DOCTYPE html><html><head><title>Treasure Hunt — ${escHtml(cfgName)}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #fff; }
+  .page { padding: 18px 24px; text-align: center; page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  h1 { font-size: 22px; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .hunt-name { font-size: 15px; font-weight: 700; color: #333; margin-bottom: 2px; }
+  .sub { font-size: 11px; color: #666; margin-bottom: 14px; }
+  img { max-width: 100%; max-height: calc(100vh - 110px); height: auto; border: 1px solid #bbb; border-radius: 4px; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style>
+</head><body>${html}
+<script>window.onload = () => { window.focus(); window.print(); }<\/script>
+</body></html>`);
+  win.document.close();
+}
+
+function renderAdminTable() {
+  if (!adminMode) return;
+  const tbody = document.getElementById('adminProgressTable');
+  if (!state.players || state.players.length === 0) {
+    tbody.innerHTML = '<p style="color:var(--subtext);font-size:0.85rem;">No players yet.</p>';
+    return;
+  }
+  let html = `<table class="admin-table"><thead><tr>
+    <th>Player</th><th>Progress</th><th>Completed</th><th>Words</th><th>Actions</th>
+  </tr></thead><tbody>`;
+  state.players.forEach((p, i) => {
+    const completed = [];
+    for (let j = 0; j < p.progress; j++) {
+      const m = state.mapping[p.order[j]];
+      completed.push(`<span class="cub-prog-chip">${m.coord}→${m.letter}<button onclick="adminRemoveLetter(${i},${j})" title="Remove">×</button></span>`);
+    }
+    const wordTags = state.words.map((w, wi) => {
+      const achieved = p.wordsAchieved && p.wordsAchieved[wi];
+      return `<span class="word-tag ${achieved ? 'achieved' : 'pending'}">${w}</span>`;
+    }).join(' ');
+    html += `<tr>
+      <td style="font-weight:700;">${escHtml(p.name)}</td>
+      <td>${p.progress}/${state.mapping.length}</td>
+      <td><div class="cub-progress-chips">${completed.join('') || '—'}</div></td>
+      <td>${wordTags}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="adminResetPlayer(${i})">Reset</button>
+        <button class="btn btn-danger btn-sm" onclick="adminRemovePlayer(${i})">Remove</button>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  tbody.innerHTML = html;
+}
+
+window.adminRemoveLetter = function(pIdx, lIdx) {
+  if (!confirm('Remove this letter from player progress?')) return;
+  state.players[pIdx].order.splice(lIdx, 1);
+  if (state.players[pIdx].progress > 0) state.players[pIdx].progress--;
+  saveState(); renderAdminTable(); if (state.selectedPlayer === pIdx) showNextCoord();
+};
+window.adminResetPlayer = function(idx) {
+  if (!confirm(`Reset ${state.players[idx].name}?`)) return;
+  state.players[idx].progress = 0;
+  state.players[idx].wordsAchieved = new Array(state.words.length).fill(false);
+  state.players[idx].order = generatePlayerOrder();
+  saveState(); renderAdminTable(); renderPlayerGrid();
+  if (state.selectedPlayer === idx) showNextCoord();
+};
+window.adminRemovePlayer = function(idx) {
+  if (!confirm(`Remove ${state.players[idx].name}?`)) return;
+  state.players.splice(idx, 1);
+  if (state.selectedPlayer === idx) state.selectedPlayer = null;
+  else if (state.selectedPlayer > idx) state.selectedPlayer--;
+  saveState(); renderAdminTable(); renderPlayerGrid();
+  if (state.selectedPlayer === null) document.getElementById('playerArea').classList.add('hidden');
+};
+function adminResetAllProgress() {
+  if (!confirm('Reset ALL player progress?')) return;
+  state.players.forEach(p => { p.progress = 0; p.wordsAchieved = new Array(state.words.length).fill(false); p.order = generatePlayerOrder(); });
+  saveState(); renderAdminTable(); renderPlayerGrid();
+  if (state.selectedPlayer !== null) showNextCoord();
+  toast('↩ All progress reset');
+}
+function adminRemoveAllPlayers() {
+  if (!confirm('Remove ALL players?')) return;
+  state.players = []; state.selectedPlayer = null;
+  saveState(); renderAdminTable(); renderPlayerGrid();
+  document.getElementById('playerArea').classList.add('hidden');
+  toast('🗑 All players removed');
+}
+
+function adminClearAllData() {
+  if (!confirm('This will wipe EVERYTHING — all saved configs, all players, all progress, and the active game. This cannot be undone. Continue?')) return;
+  localStorage.removeItem('th_v2_state');
+  localStorage.removeItem('th_v2_configs');
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════════
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function scramble(word) {
+  const arr = word.split('');
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.join('');
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+window.onload = function() {
+  loadState();
+
+  // Init builder words
+  builderWords = ['', ''];
+  renderWordSlots();
+
+  // Restore map if saved
+  if (state.mapDataURL) {
+    mapImage = new Image();
+    mapImage.onload = () => {
+      const canvas = document.getElementById('mapCanvas');
+      const maxW = Math.min(880, canvas.parentElement.offsetWidth || 880);
+      canvas.width = maxW;
+      canvas.height = mapImage.height * (maxW / mapImage.width);
+      restoreCanvasState(canvas);
+      document.getElementById('mapDropzone').classList.add('hidden');
+      document.getElementById('mapEditorArea').classList.remove('hidden');
+      document.getElementById('gridCols').value = state.gridCols;
+      document.getElementById('gridRows').value = state.gridRows;
+      document.getElementById('gridXStart').value = state.gridXStart;
+      document.getElementById('gridYStart').value = state.gridYStart;
+      setupCanvasEvents();
+      redrawGrid();
+    };
+    mapImage.src = state.mapDataURL;
+  }
+
+  renderGameScreen();
+  renderConfigGrid();
+
+  // Pre-fill builder fields from saved state
+  if (state.adminPassword) {
+    document.getElementById('builderAdminPassword').value = state.adminPassword;
+  }
+  document.getElementById('sixFigureToggle').value = state.sixFigure ? '6' : '4';
+
+  // Start in admin mode so first-time setup is accessible
+  adminMode = true;
+  applyAdminUI();
+};
+</script>
+</body>
+</html>
