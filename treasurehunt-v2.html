@@ -2102,44 +2102,76 @@ function printMaps(which = 'both') {
 
 function renderAdminTable() {
   if (!adminMode) return;
-  const tbody = document.getElementById('adminProgressTable');
+  const el = document.getElementById('adminProgressTable');
   if (!state.players || state.players.length === 0) {
-    tbody.innerHTML = '<p style="color:var(--subtext);font-size:0.85rem;">No players yet.</p>';
+    el.innerHTML = '<p style="color:var(--subtext);font-size:0.85rem;">No players yet.</p>';
     return;
   }
-  let html = `<table class="admin-table"><thead><tr>
-    <th>Player</th><th>Progress</th><th>Completed</th><th>Words</th><th>Actions</th>
-  </tr></thead><tbody>`;
+  let html = '';
   state.players.forEach((p, i) => {
-    const completed = [];
-    for (let j = 0; j < p.progress; j++) {
+    const total = state.mapping.length;
+    const pct = total > 0 ? Math.round(p.progress / total * 100) : 0;
+
+    // All letters in order — green (done) or red (remaining)
+    let chipsHtml = '';
+    for (let j = 0; j < (p.order ? p.order.length : 0); j++) {
       const m = state.mapping[p.order[j]];
-      completed.push(`<span class="cub-prog-chip">${m.coord}→${m.letter}<button onclick="adminRemoveLetter(${i},${j})" title="Remove">×</button></span>`);
+      if (!m) continue;
+      if (j < p.progress) {
+        chipsHtml += `<span class="lchip done" title="Found">${m.letter} <small>${m.coord}</small><button onclick="adminRemoveLetter(${i},${j})" title="Undo this find">×</button></span>`;
+      } else {
+        chipsHtml += `<span class="lchip remaining" title="Still to find">${m.letter} <small>${m.coord}</small></span>`;
+      }
     }
-    const wordTags = state.words.map((w, wi) => {
+
+    const wordTagsHtml = state.words.map((w, wi) => {
       const achieved = p.wordsAchieved && p.wordsAchieved[wi];
-      return `<span class="word-tag ${achieved ? 'achieved' : 'pending'}">${w}</span>`;
-    }).join(' ');
-    html += `<tr>
-      <td style="font-weight:700;">${escHtml(p.name)}</td>
-      <td>${p.progress}/${state.mapping.length}</td>
-      <td><div class="cub-progress-chips">${completed.join('') || '—'}</div></td>
-      <td>${wordTags}</td>
-      <td style="white-space:nowrap;">
-        <button class="btn btn-ghost btn-sm" onclick="adminResetPlayer(${i})">Reset</button>
-        <button class="btn btn-danger btn-sm" onclick="adminRemovePlayer(${i})">Remove</button>
-      </td>
-    </tr>`;
+      if (achieved) {
+        return `<span class="word-tag achieved">${escHtml(w)}<button class="word-tag-undo" onclick="adminUndoWord(${i},${wi})" title="Undo word achievement">↩</button></span>`;
+      }
+      return `<span class="word-tag pending">${escHtml(w)}</span>`;
+    }).join('');
+
+    html += `<div class="admin-player-card">
+      <div class="apc-header">
+        <span class="apc-name">${escHtml(p.name)}</span>
+        <span class="apc-stats">${p.progress}/${total} letters &nbsp;(${pct}%)</span>
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="adminResetPlayer(${i})">Reset</button>
+          <button class="btn btn-danger btn-sm" onclick="adminRemovePlayer(${i})">Remove</button>
+        </div>
+      </div>
+      <div class="apc-letters">${chipsHtml || '<span style="color:var(--subtext);font-size:0.78rem;">No letters in sequence yet</span>'}</div>
+      <div class="apc-words">${wordTagsHtml}</div>
+    </div>`;
   });
-  html += '</tbody></table>';
-  tbody.innerHTML = html;
+  el.innerHTML = html;
 }
 
 window.adminRemoveLetter = function(pIdx, lIdx) {
-  if (!confirm('Remove this letter from player progress?')) return;
-  state.players[pIdx].order.splice(lIdx, 1);
-  if (state.players[pIdx].progress > 0) state.players[pIdx].progress--;
+  if (!confirm('Undo this letter find? It will go back to remaining.')) return;
+  const p = state.players[pIdx];
+  // swap the found letter to just before the progress boundary so it becomes next-up
+  const removed = p.order.splice(lIdx, 1)[0];
+  p.progress = Math.max(0, p.progress - 1);
+  p.order.splice(p.progress, 0, removed);
   saveState(); renderAdminTable(); if (state.selectedPlayer === pIdx) showNextCoord();
+};
+
+window.adminUndoWord = function(pIdx, wordIdx) {
+  const p = state.players[pIdx];
+  if (!confirm(`Undo "${state.words[wordIdx]}" for ${escHtml(p.name)}? They'll need to unscramble it again.`)) return;
+  // Roll progress back to the end of this word's letter collection (before unscramble was submitted)
+  let progressTarget = 0;
+  for (let k = 0; k <= wordIdx; k++) progressTarget += state.words[k].length;
+  p.progress = Math.min(p.progress, progressTarget);
+  // Clear this word and all later ones
+  for (let wi = wordIdx; wi < state.words.length; wi++) {
+    if (p.wordsAchieved) p.wordsAchieved[wi] = false;
+  }
+  p.displayedLevel = wordIdx;
+  saveState(); renderAdminTable(); renderPlayerGrid();
+  if (state.selectedPlayer === pIdx) showNextCoord();
 };
 window.adminResetPlayer = function(idx) {
   if (!confirm(`Reset ${state.players[idx].name}?`)) return;
