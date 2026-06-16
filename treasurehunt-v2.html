@@ -1615,36 +1615,28 @@ function getLevelInfo(player) {
 
 let _currentLevelIdx = -1;
 
-function applyLevelTheme(levelIdx) {
+function applyLevelTheme(levelIdx, doFlash = false) {
   const t = LEVEL_THEMES[levelIdx % LEVEL_THEMES.length];
-  const isNewLevel = levelIdx !== _currentLevelIdx;
   _currentLevelIdx = levelIdx;
 
-  // Body background colour — the most obvious change
   document.body.style.background = t.body;
-
-  // Strong radial highlight on top
   document.getElementById('levelBg').style.background =
     `radial-gradient(ellipse at 50% 30%, ${t.bg} 0%, transparent 60%)`;
-
-  // Progress bar
   document.getElementById('progressFill').style.background =
     `linear-gradient(90deg, ${t.a}, ${t.b})`;
 
-  // Level badge
   const badge = document.getElementById('levelBadge');
   badge.textContent = t.label;
   badge.style.background = `linear-gradient(135deg, ${t.a}, ${t.b})`;
   badge.style.boxShadow = `0 0 24px ${t.bg}, 0 2px 8px rgba(0,0,0,0.4)`;
 
-  // Level-up flash — only on genuine level transitions
-  if (isNewLevel && _currentLevelIdx !== 0) {
+  if (doFlash) {
     const flash = document.getElementById('levelFlash');
     document.getElementById('lfLabel').textContent = t.label;
     document.getElementById('lfLabel').style.color = t.b;
     document.getElementById('lfSub').textContent = t.sub;
     flash.classList.remove('pop');
-    void flash.offsetWidth; // force reflow so animation restarts
+    void flash.offsetWidth;
     flash.classList.add('pop');
   }
 }
@@ -1664,7 +1656,7 @@ function addPlayer(event) {
   const name = document.getElementById('playerNameInput').value.trim();
   if (!name) return;
   if (state.players.some(p => p.name.toLowerCase() === name.toLowerCase())) { toast('⚠ Player already exists'); return; }
-  const player = { name, progress: 0, order: generatePlayerOrder(), wordsAchieved: new Array(state.words.length).fill(false) };
+  const player = { name, progress: 0, order: generatePlayerOrder(), wordsAchieved: new Array(state.words.length).fill(false), displayedLevel: 0 };
   state.players.push(player);
   saveState();
   renderPlayerGrid();
@@ -1751,7 +1743,9 @@ function showNextCoord() {
   if (progress >= p.order.length) { showUnscramble(state.words.length - 1); return; }
 
   const { levelIdx, progressInWord, wordLen } = getLevelInfo(p);
-  applyLevelTheme(levelIdx);
+  const doFlash = levelIdx > (p.displayedLevel ?? 0);
+  if (doFlash) { p.displayedLevel = levelIdx; saveState(); }
+  applyLevelTheme(levelIdx, doFlash);
 
   const mapIdx = p.order[progress];
   document.getElementById('coordDisplay').textContent = state.mapping[mapIdx].coord;
@@ -1792,7 +1786,11 @@ function renderProgressChips() {
   const p = state.players[state.selectedPlayer];
   const chips = document.getElementById('progressChips');
   chips.innerHTML = '';
-  for (let i = 0; i < p.progress; i++) {
+  // Only show coordinates found in the current level
+  const { levelIdx } = getLevelInfo(p);
+  let levelStart = 0;
+  for (let wi = 0; wi < levelIdx; wi++) levelStart += state.words[wi].length;
+  for (let i = levelStart; i < p.progress; i++) {
     const mapIdx = p.order[i];
     const m = state.mapping[mapIdx];
     const chip = document.createElement('div');
@@ -1800,7 +1798,7 @@ function renderProgressChips() {
     chip.textContent = `${m.coord} → ${m.letter}`;
     chips.appendChild(chip);
   }
-  if (p.progress === 0) chips.innerHTML = '<span style="color:var(--subtext);font-size:0.8rem;">No coordinates found yet</span>';
+  if (p.progress <= levelStart) chips.innerHTML = '<span style="color:var(--subtext);font-size:0.8rem;">No coordinates found yet this level</span>';
 }
 
 function showUnscramble(wordIdx) {
@@ -2123,6 +2121,7 @@ window.adminResetPlayer = function(idx) {
   state.players[idx].progress = 0;
   state.players[idx].wordsAchieved = new Array(state.words.length).fill(false);
   state.players[idx].order = generatePlayerOrder();
+  state.players[idx].displayedLevel = 0;
   saveState(); renderAdminTable(); renderPlayerGrid();
   if (state.selectedPlayer === idx) showNextCoord();
 };
@@ -2136,7 +2135,7 @@ window.adminRemovePlayer = function(idx) {
 };
 function adminResetAllProgress() {
   if (!confirm('Reset ALL player progress?')) return;
-  state.players.forEach(p => { p.progress = 0; p.wordsAchieved = new Array(state.words.length).fill(false); p.order = generatePlayerOrder(); });
+  state.players.forEach(p => { p.progress = 0; p.wordsAchieved = new Array(state.words.length).fill(false); p.order = generatePlayerOrder(); p.displayedLevel = 0; });
   saveState(); renderAdminTable(); renderPlayerGrid();
   if (state.selectedPlayer !== null) showNextCoord();
   toast('↩ All progress reset');
