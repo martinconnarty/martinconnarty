@@ -1545,6 +1545,8 @@ function launchGame() {
   state.sixFigure = document.getElementById('sixFigureToggle').value === '6';
   state.mapDataURL = state.mapDataURL || null;
   saveState();
+  adminMode = false;
+  applyAdminUI();
   switchTab('game');
   toast('🚀 Hunt launched!');
 }
